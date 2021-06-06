@@ -11,7 +11,17 @@ config_version=4
 [application]
 
 config/name="network-api"
+run/main_scene="res://Exemples/Scenes/Menu.tscn"
 config/icon="res://icon.png"
+
+[autoload]
+
+NetworkManager="*res://Scripts/NetworkManager.cs"
+
+[display]
+
+window/size/width=640
+window/size/height=360
 
 [physics]
 

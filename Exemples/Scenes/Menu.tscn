@@ -1,0 +1,193 @@
+[gd_scene load_steps=3 format=2]
+
+[ext_resource path="res://Exemples/Assets/refresh.png" type="Texture" id=1]
+[ext_resource path="res://Exemples/Scripts/MenuManager.cs" type="Script" id=2]
+
+[node name="Menu" type="Control"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+script = ExtResource( 2 )
+__meta__ = {
+"_edit_lock_": true,
+"_edit_use_anchors_": false
+}
+
+[node name="Nickname" type="Panel" parent="."]
+margin_left = 30.0
+margin_top = 14.0
+margin_right = 300.0
+margin_bottom = 48.0
+__meta__ = {
+"_edit_group_": true,
+"_edit_lock_": true,
+"_edit_use_anchors_": false
+}
+
+[node name="Label" type="Label" parent="Nickname"]
+margin_left = 6.0
+margin_right = 124.0
+margin_bottom = 34.0
+text = "Enter a nickname: "
+valign = 1
+__meta__ = {
+"_edit_use_anchors_": false
+}
+
+[node name="LineEdit" type="LineEdit" parent="Nickname"]
+margin_left = 124.0
+margin_top = 4.0
+margin_right = 264.0
+margin_bottom = 28.0
+
+[node name="Hosting" type="Panel" parent="."]
+anchor_top = 0.5
+anchor_bottom = 0.5
+margin_left = 30.0
+margin_top = -82.0
+margin_right = 235.0
+margin_bottom = 53.0
+__meta__ = {
+"_edit_group_": true,
+"_edit_use_anchors_": false
+}
+
+[node name="Title" type="Label" parent="Hosting"]
+margin_right = 205.0
+margin_bottom = 28.0
+text = "Host a lobby"
+align = 1
+valign = 1
+__meta__ = {
+"_edit_use_anchors_": false
+}
+
+[node name="Name Label" type="Label" parent="Hosting"]
+margin_left = 4.76823
+margin_top = 39.0
+margin_right = 86.7682
+margin_bottom = 63.0
+text = "Lobby name:"
+valign = 1
+__meta__ = {
+"_edit_use_anchors_": false
+}
+
+[node name="Password Label" type="Label" parent="Hosting"]
+margin_left = 4.76823
+margin_top = 67.0332
+margin_right = 82.7682
+margin_bottom = 91.0332
+text = "Password:"
+valign = 1
+__meta__ = {
+"_edit_use_anchors_": false
+}
+
+[node name="Host Button" type="Button" parent="Hosting"]
+margin_left = 59.8128
+margin_top = 104.376
+margin_right = 152.813
+margin_bottom = 126.376
+text = "HOST"
+__meta__ = {
+"_edit_use_anchors_": false
+}
+
+[node name="Name input" type="LineEdit" parent="Hosting"]
+margin_left = 87.0
+margin_top = 39.0
+margin_right = 196.0
+margin_bottom = 63.0
+__meta__ = {
+"_edit_use_anchors_": false
+}
+
+[node name="Password input" type="LineEdit" parent="Hosting"]
+margin_left = 87.0
+margin_top = 67.0332
+margin_right = 196.0
+margin_bottom = 91.0332
+secret = true
+__meta__ = {
+"_edit_use_anchors_": false
+}
+
+[node name="Lobbies" type="Panel" parent="."]
+margin_left = 401.0
+margin_top = 45.0
+margin_right = 606.0
+margin_bottom = 323.0
+__meta__ = {
+"_edit_group_": true,
+"_edit_lock_": true,
+"_edit_use_anchors_": false
+}
+
+[node name="Title" type="Label" parent="Lobbies"]
+margin_right = 205.0
+margin_bottom = 32.0
+text = "    Available Lobbies"
+valign = 1
+
+[node name="Refresh" type="Button" parent="Lobbies"]
+margin_left = 165.932
+margin_top = 3.06759
+margin_right = 201.932
+margin_bottom = 37.0676
+icon = ExtResource( 1 )
+expand_icon = true
+__meta__ = {
+"_edit_use_anchors_": false
+}
+
+[node name="List" type="ItemList" parent="Lobbies"]
+margin_left = 9.0
+margin_top = 49.0
+margin_right = 192.0
+margin_bottom = 243.0
+__meta__ = {
+"_edit_use_anchors_": false
+}
+
+[node name="Join Button" type="Button" parent="Lobbies"]
+margin_left = 56.0356
+margin_top = 249.735
+margin_right = 149.036
+margin_bottom = 271.735
+text = "JOIN"
+__meta__ = {
+"_edit_use_anchors_": false
+}
+
+[node name="OR" type="Label" parent="."]
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+margin_left = -15.0
+margin_top = -12.0
+margin_right = 15.0
+margin_bottom = 12.0
+text = "OR"
+align = 1
+valign = 1
+__meta__ = {
+"_edit_lock_": true,
+"_edit_use_anchors_": false
+}
+
+[node name="Popup" type="AcceptDialog" parent="."]
+margin_left = 269.928
+margin_top = 94.0
+margin_right = 365.928
+margin_bottom = 152.0
+popup_exclusive = true
+window_title = "Error /!\\"
+__meta__ = {
+"_edit_use_anchors_": false
+}
+
+[connection signal="pressed" from="Hosting/Host Button" to="." method="TryLobbyCreation"]
+[connection signal="pressed" from="Lobbies/Refresh" to="." method="RefreshLobbyList"]
+[connection signal="item_selected" from="Lobbies/List" to="." method="LobbySelected"]
+[connection signal="pressed" from="Lobbies/Join Button" to="." method="TryLobbyJoin"]

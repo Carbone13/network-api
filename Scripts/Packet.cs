@@ -1,4 +1,5 @@
-﻿using LiteNetLib;
+﻿using System.Net;
+using LiteNetLib;
 using LiteNetLib.Utils;
 
 namespace Network.Packet
@@ -30,66 +31,39 @@ namespace Network.Packet
         }
     }
 
-    
-    /// <summary>
-    /// A packet to join a lobby
-    /// Contains a nickname and the lobby password
-    /// </summary>
-    public class JoinLobbyRequest
-    {
-        public string Name { get; set; }
-        public string Password { get; set; }
-    }
-
-    public class JoinLobbyRequestAnswer
-    {
-        public bool canConnect { get; set; }
-        public string errorMessage { get; set; }
-    }
-    
+    // Represent a joinable Lobby
     public class Lobby
     {
-        public string HostNickname { get; set; }
-        public PeerAddress HostAddress { get; set; }
+        public IPEndPoint HostPublicAddress { get; set; }
         public string LobbyName { get; set; }
-        public string LobbyPassword { get; set; }
-        public int ClientCount { get; set; }
+        public string HostName { get; set; }
+        public int PlayerCount { get; set; }
     }
+
     
-    public struct LobbyInformation : INetSerializable
+    // Empty packet, notify that you want to get the lobbies list
+    public class RequestLobbyList {}
+
+    // Ask to join a specific lobby
+    public class JoinLobby
     {
-        public string HostNickname { get; set; }
-        public PeerAddress HostAddress { get; set; }
+        public IPEndPoint HostPublicAddress { get; set; }
         public string LobbyName { get; set; }
-        public string LobbyPassword { get; set; }
-        public int ClientCount { get; set; }
+        public string HostName { get; set; }
+        public int PlayerCount { get; set; }
+    }
+
+    // Sent by Lobby-er to client, notify them that they need to connect toward the specified end point
+    public class ConnectTowardOrder
+    {
+        public IPEndPoint target { get; set; }
+    }
+
+    // Send an int linking to an error
+    public class NATError
+    {
+        public const int LOBBY_HOST_LOST = 1;
         
-        public void Serialize (NetDataWriter writer)
-        {
-            writer.Put(HostNickname);
-            writer.Put(HostAddress.Address);
-            writer.Put(HostAddress.Port);
-            writer.Put(LobbyName);
-            writer.Put(LobbyPassword);
-            writer.Put(ClientCount);
-        }
-
-        public void Deserialize (NetDataReader reader)
-        {
-            HostNickname = reader.GetString();
-            HostAddress = new PeerAddress(reader.GetString(), reader.GetInt());
-            LobbyName = reader.GetString();
-            LobbyPassword = reader.GetString();
-            ClientCount = reader.GetInt();
-        }
+        public int error { get; set; }
     }
-    
-    public class QueryAvailableLobbies {}
-    
-    public class AvailableLobbies
-    {
-        public LobbyInformation[] Lobbies { get; set; }
-    }
-
-
 }

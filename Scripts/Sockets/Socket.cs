@@ -40,8 +40,7 @@ namespace Network
         public Socket ()
         {
             Processor = new NetPacketProcessor();
-            Processor.RegisterNestedType<PeerAddress>(); 
-            Processor.RegisterNestedType<LobbyInformation>();
+            Processor.RegisterNestedType<PeerAddress>();
         }
         
         public void Listen (int port = -1)
@@ -61,7 +60,7 @@ namespace Network
             StartNetworkThread();
         }
 
-        public NetPeer Connect (string address, int port, string key)
+        public NetPeer TryConnect (string address, int port, string key)
         {
             if (!_listening)
             {
@@ -69,18 +68,12 @@ namespace Network
             }
 
             NetPeer peer = net.Connect(address, port, key);
+            return peer;
+        }
 
-            if (!peers.Contains(peer))
-            {
-                peers.Add(peer);
-                return peer;
-            }
-            else
-            {
-                GD.PrintErr("Already connected to " + peer);
-                peer.Disconnect();
-                return null;
-            }
+        public void Disconnect (NetPeer target)
+        {
+            target.Disconnect();
         }
 
 
@@ -118,7 +111,7 @@ namespace Network
             while (_listening)
             {
                 net.PollEvents();
-                Thread.Sleep(15);
+                Thread.Sleep(5);
             }
         }
 
@@ -127,11 +120,13 @@ namespace Network
         #region Net Events
         public void OnPeerConnected (NetPeer peer)
         {
+            peers.Add(peer);
             PeerConnection?.Invoke(peer);
         }
 
         public void OnPeerDisconnected (NetPeer peer, DisconnectInfo disconnectInfo)
         {
+            peers.Remove(peer);
             PeerDisconnection?.Invoke(peer, disconnectInfo);
         }
 
@@ -163,10 +158,5 @@ namespace Network
         }
 
         #endregion
-    }
-
-    public interface ISocket
-    {
-        Socket Socket { get; set; }
     }
 }

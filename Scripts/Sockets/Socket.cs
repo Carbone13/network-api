@@ -67,6 +67,7 @@ namespace Network
                 Listen();
             }
 
+            GD.Print("> connecting to " + address + ":" + port);
             NetPeer peer = net.Connect(address, port, key);
             return peer;
         }
@@ -121,6 +122,7 @@ namespace Network
         public void OnPeerConnected (NetPeer peer)
         {
             peers.Add(peer);
+            GD.Print("> New peer connected (confirmed) " + peer.EndPoint);
             PeerConnection?.Invoke(peer);
         }
 
@@ -154,6 +156,8 @@ namespace Network
 
         public void OnConnectionRequest (ConnectionRequest request)
         {
+            // TODO deactivate that
+            request.Accept();
             ConnectionRequest?.Invoke(request);
         }
 

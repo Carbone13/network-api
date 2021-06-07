@@ -2,6 +2,7 @@
 using LiteNetLib;
 using LiteNetLib.Utils;
 
+// TODO rework packets for v2
 namespace Network.Packet
 {
     /// <summary>
@@ -66,4 +67,6 @@ namespace Network.Packet
         
         public int error { get; set; }
     }
+    
+    public class LobbyConnectConfirmationFromHost {}
 }

@@ -82,7 +82,8 @@ namespace Network
         {
             foreach (NetPeer peer in peers)
             {
-                peer.Send(data, method);
+                if(peer.EndPoint.Address.ToString() != "90.76.187.136")
+                     peer.Send(data, method);
             }
         }
         

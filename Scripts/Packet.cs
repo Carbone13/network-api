@@ -69,4 +69,10 @@ namespace Network.Packet
     }
     
     public class LobbyConnectConfirmationFromHost {}
+
+    public class LobbyMessage
+    {
+        public string header { get; set; }
+        public string message { get; set; }
+    }
 }

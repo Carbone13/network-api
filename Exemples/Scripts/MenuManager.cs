@@ -82,7 +82,7 @@ public class MenuManager : Node
         Node lobbyScene = ResourceLoader.Load<PackedScene>("res://Exemples/Scenes/Lobby.tscn").Instance();
         GetTree().Root.AddChild(lobbyScene);
         LobbyManager manager = lobbyScene as LobbyManager;
-        manager.Initialize(new Lobby(), true, toNat);
+        manager.Initialize(new Lobby(), true, toNat, nickname.Text);
     }
 
     public void TryLobbyJoin ()
@@ -168,7 +168,7 @@ public class MenuManager : Node
         Node lobbyScene = ResourceLoader.Load<PackedScene>("res://Exemples/Scenes/Lobby.tscn").Instance();
         GetTree().Root.AddChild(lobbyScene);
         LobbyManager manager = lobbyScene as LobbyManager;
-        manager.Initialize(new Lobby(), false, null);
+        manager.Initialize(new Lobby(), false, null, nickname.Text);
     }
 
     public void RefreshLobbyList ()

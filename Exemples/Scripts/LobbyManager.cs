@@ -5,6 +5,13 @@ using LiteNetLib;
 using Network;
 using Network.Packet;
 using LiteNetLib.Utils;
+using System.Collections.Generic;
+
+// TODO on lan we shoud also know our public address
+// TODO on lan we shoud also know our public address
+// TODO on lan we shoud also know our public address
+// TODO on lan we shoud also know our public address
+// TODO on lan we shoud also know our public address
 
 public class LobbyManager : Node
 {
@@ -16,6 +23,8 @@ public class LobbyManager : Node
 
     private bool _isHost;
     private string _nickname;
+
+    public Dictionary<NetPeer, EndpointCouple> connectedClients = new Dictionary<NetPeer, EndpointCouple>();
     
     public void Initialize (Lobby lobby, bool host, NetPeer nat, string nickname)
     {
@@ -43,11 +52,39 @@ public class LobbyManager : Node
         GD.Print("> Received connection order");
         GD.Print(" >> We must connect toward " + order.target);
 
-        //NetworkManager.singleton.Connect(new PeerAddress(order.target.Address.ToString(), order.target.Port), "");
-        TryConnect(order);
+        TreatOrder(order);
     }
 
-    public async void TryConnect (ConnectTowardOrder order)
+    public async void TreatOrder (ConnectTowardOrder order)
+    {
+        NetPeer con = await TryConnect(order);
+        if(con == null) return;
+
+        connectedClients.Add(con, new EndpointCouple(order.target, con.EndPoint));
+
+        LobbyConnectConfirmationFromHost conf = new LobbyConnectConfirmationFromHost();
+        con.Send(NetworkManager.Processor.Write(conf), DeliveryMethod.ReliableOrdered);
+        
+        if(!_isHost) return;
+
+        ConnectTowardOrder _order = new ConnectTowardOrder();
+        _order.target = con.EndPoint;
+
+        foreach(NetPeer alreadyConnect in NetworkManager.singleton.Socket.peers)
+        {
+            if(alreadyConnect != _nat && alreadyConnect != con)
+            {
+                alreadyConnect.Send(NetworkManager.Processor.Write(_order), DeliveryMethod.ReliableOrdered);
+
+                ConnectTowardOrder _other = new ConnectTowardOrder();
+                _other.target = alreadyConnect.EndPoint;
+
+                con.Send(NetworkManager.Processor.Write(_other), DeliveryMethod.ReliableOrdered);
+            }
+        }
+    }
+
+    public async Task<NetPeer> TryConnect (ConnectTowardOrder order)
     {
         GD.Print("  >>> Starting connections request");
         int tryCount = 0;
@@ -57,7 +94,18 @@ public class LobbyManager : Node
         if(_isHost)
             await Task.Delay(100);
         
-        NetPeer con = NetworkManager.singleton.Connect(new PeerAddress(order.target.Address.ToString(), order.target.Port), "");
+        PeerAddress targetAddress = new PeerAddress();
+
+        if(order.usePrivate)
+        {
+            targetAddress = new PeerAddress(order.privateTarget.Address.ToString(), order.privateTarget.Port);
+        }
+        else
+        {
+            targetAddress = new PeerAddress(order.target.Address.ToString(), order.target.Port);
+        }
+
+        NetPeer con = NetworkManager.singleton.Connect(targetAddress, "");
         await Task.Delay(800);
         
         while (con.ConnectionState != ConnectionState.Connected)
@@ -73,26 +121,15 @@ public class LobbyManager : Node
             GD.Print("  >>> Retrying to connect...");
             
             con.Disconnect();
-            con = NetworkManager.singleton.Connect(new PeerAddress(order.target.Address.ToString(), order.target.Port), "");
+            con = NetworkManager.singleton.Connect(targetAddress, "");
             
             tryCount++;
         }
         
         GD.Print("  >>> Connected to peer !");
         GD.Print("  >>> Confirming to peer that he is connected");
-        LobbyConnectConfirmationFromHost conf = new LobbyConnectConfirmationFromHost();
-        con.Send(NetworkManager.Processor.Write(conf), DeliveryMethod.ReliableOrdered);
 
-        ConnectTowardOrder _order = new ConnectTowardOrder();
-        _order.target = con.EndPoint;
-
-        foreach(NetPeer alreadyConnect in NetworkManager.singleton.Socket.peers)
-        {
-            if(alreadyConnect != _nat && alreadyConnect != con)
-            {
-                alreadyConnect.Send(NetworkManager.Processor.Write(_order), DeliveryMethod.ReliableOrdered);
-            }
-        }
+        return con; 
     }
 
     public override void _Input (InputEvent @event)

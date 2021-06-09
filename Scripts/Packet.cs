@@ -5,6 +5,17 @@ using LiteNetLib.Utils;
 // TODO rework packets for v2
 namespace Network.Packet
 {
+    public struct EndpointCouple
+    {
+        public IPEndPoint Public, Private;
+
+        public EndpointCouple (IPEndPoint _public, IPEndPoint _private)
+        {
+            Public = _public;
+            Private = _private;
+        }
+    }
+
     /// <summary>
     /// Represent the address of a peer
     /// </summary>
@@ -58,6 +69,8 @@ namespace Network.Packet
     public class ConnectTowardOrder
     {
         public IPEndPoint target { get; set; }
+        public IPEndPoint privateTarget { get; set; }
+        public bool usePrivate { get; set;}    
     }
 
     // Send an int linking to an error

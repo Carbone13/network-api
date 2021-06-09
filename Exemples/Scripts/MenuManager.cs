@@ -155,9 +155,12 @@ public class MenuManager : Node
         GD.Print("  >>> Connected to peer !");
     }
 
+private bool _connectedToLobby;
     // This is the final packet sent by the host, when every primal connections are successfull
     public void OnConnectionToLobbyConfirmed (LobbyConnectConfirmationFromHost confirmation)
     {
+        if(_connectedToLobby) return;
+        _connectedToLobby = true;
         GD.Print("> Host accepted us !");
         GD.Print(">> Loading the Lobby...");
         GD.Print(">> Disconnecting from Lobby-Er");
@@ -168,6 +171,7 @@ public class MenuManager : Node
         Node lobbyScene = ResourceLoader.Load<PackedScene>("res://Exemples/Scenes/Lobby.tscn").Instance();
         GetTree().Root.AddChild(lobbyScene);
         LobbyManager manager = lobbyScene as LobbyManager;
+        
         manager.Initialize(new Lobby(), false, null, nickname.Text);
     }
 

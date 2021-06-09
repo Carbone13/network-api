@@ -38,7 +38,7 @@ public class LobbyManager : Node
 
     public void OnConnectOrderReceived (ConnectTowardOrder order, NetPeer from)
     {
-        if (from != _nat) return;
+        //if (from != _nat) return;
         
         GD.Print("> Received connection order");
         GD.Print(" >> We must connect toward " + order.target);
@@ -82,6 +82,17 @@ public class LobbyManager : Node
         GD.Print("  >>> Confirming to peer that he is connected");
         LobbyConnectConfirmationFromHost conf = new LobbyConnectConfirmationFromHost();
         con.Send(NetworkManager.Processor.Write(conf), DeliveryMethod.ReliableOrdered);
+
+        ConnectTowardOrder _order = new ConnectTowardOrder();
+        _order.target = con.EndPoint;
+
+        foreach(NetPeer alreadyConnect in NetworkManager.singleton.Socket.peers)
+        {
+            if(alreadyConnect != _nat && alreadyConnect != con)
+            {
+                alreadyConnect.Send(NetworkManager.Processor.Write(_order), DeliveryMethod.ReliableOrdered);
+            }
+        }
     }
 
     public override void _Input (InputEvent @event)

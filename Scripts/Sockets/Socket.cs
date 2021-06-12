@@ -20,7 +20,9 @@ namespace Network
         
         public NetPacketProcessor Processor;
         private NetManager net; // This things allow us to connect & receive packets
+
         public readonly List<NetPeer> peers = new List<NetPeer>(); // List of peers we are connected to.
+    
 
         private bool _listening; // If we are currently listening one port (= can we receive packets ?)
         
@@ -113,7 +115,7 @@ namespace Network
             while (_listening)
             {
                 net.PollEvents();
-                Thread.Sleep(5);
+                Thread.Sleep(12);
             }
         }
 

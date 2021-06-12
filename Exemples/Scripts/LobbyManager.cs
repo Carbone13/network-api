@@ -60,7 +60,7 @@ public class LobbyManager : Node
         NetPeer con = await TryConnect(order);
         if(con == null) return;
 
-        connectedClients.Add(con, new EndpointCouple(order.target, con.EndPoint));
+        connectedClients.Add(con, new EndpointCouple(order.target, order.privateTarget));
 
         LobbyConnectConfirmationFromHost conf = new LobbyConnectConfirmationFromHost();
         con.Send(NetworkManager.Processor.Write(conf), DeliveryMethod.ReliableOrdered);
@@ -68,17 +68,22 @@ public class LobbyManager : Node
         if(!_isHost) return;
 
         ConnectTowardOrder _order = new ConnectTowardOrder();
-        _order.target = con.EndPoint;
+        _order.privateTarget = connectedClients[con].Private;
+        _order.target = connectedClients[con].Public;
 
-        foreach(NetPeer alreadyConnect in NetworkManager.singleton.Socket.peers)
+        foreach(NetPeer alreadyConnect in connectedClients.Keys)
         {
-            if(alreadyConnect != _nat && alreadyConnect != con)
+            if(alreadyConnect != con)
             {
-                alreadyConnect.Send(NetworkManager.Processor.Write(_order), DeliveryMethod.ReliableOrdered);
-
                 ConnectTowardOrder _other = new ConnectTowardOrder();
-                _other.target = alreadyConnect.EndPoint;
+                _other.target = connectedClients[alreadyConnect].Public;
+                _other.privateTarget = connectedClients[alreadyConnect].Private;
 
+                bool usePrivate = _order.target.Address.ToString() == _other.target.Address.ToString();
+                _order.usePrivate = usePrivate;
+                _other.usePrivate = usePrivate;
+
+                alreadyConnect.Send(NetworkManager.Processor.Write(_order), DeliveryMethod.ReliableOrdered);
                 con.Send(NetworkManager.Processor.Write(_other), DeliveryMethod.ReliableOrdered);
             }
         }
@@ -86,48 +91,41 @@ public class LobbyManager : Node
 
     public async Task<NetPeer> TryConnect (ConnectTowardOrder order)
     {
-        GD.Print("  >>> Starting connections request");
+        GD.Print("> Trying to connect toward " + (order.usePrivate ? order.privateTarget : order.target));
+        
         int tryCount = 0;
         
-        // This is only relevant on local, you can't connect if you have pending request
-        // TODO cleaner way (like await NoPendingRequest;)
         if(_isHost)
             await Task.Delay(100);
         
         PeerAddress targetAddress = new PeerAddress();
-
         if(order.usePrivate)
-        {
             targetAddress = new PeerAddress(order.privateTarget.Address.ToString(), order.privateTarget.Port);
-        }
         else
-        {
             targetAddress = new PeerAddress(order.target.Address.ToString(), order.target.Port);
-        }
-
+        
         NetPeer con = NetworkManager.singleton.Connect(targetAddress, "");
-        await Task.Delay(800);
+        await Task.Delay(500);
         
         while (con.ConnectionState != ConnectionState.Connected)
         {
-            if (tryCount > 10)
+            if (tryCount > 3)
             {
-                GD.Print("  >>> Time out !");
-                return;
+                GD.Print(" >> Time out !");
+                return null;
             }
+
+            GD.Print(" >> Failed to connect, retrying...");
+            await Task.Delay(500);
             
-            GD.Print("  >>> Failed ! Retrying in 5 seconds");
-            await Task.Delay(800);
-            GD.Print("  >>> Retrying to connect...");
-            
+            // Retry
             con.Disconnect();
             con = NetworkManager.singleton.Connect(targetAddress, "");
             
             tryCount++;
         }
         
-        GD.Print("  >>> Connected to peer !");
-        GD.Print("  >>> Confirming to peer that he is connected");
+        GD.Print(" >> Connected to peer !");
 
         return con; 
     }

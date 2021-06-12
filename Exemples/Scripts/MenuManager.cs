@@ -109,14 +109,12 @@ public class MenuManager : Node
         order.HostPublicAddress = selected.HostPublicAddress;
         
         toNat.Send(NetworkManager.Processor.Write(order), DeliveryMethod.ReliableOrdered);
-
-        
     }
 
     private bool _connectedToLobby;
     
     // This is the final packet sent by the host, when every primal connections are successfull
-    public void OnConnectionToLobbyConfirmed (LobbyConnectConfirmationFromHost confirmation)
+    public async void OnConnectionToLobbyConfirmed (LobbyConnectConfirmationFromHost confirmation)
     {
         if(_connectedToLobby) return;
         _connectedToLobby = true;
@@ -127,8 +125,14 @@ public class MenuManager : Node
 
         Node lobbyScene = ResourceLoader.Load<PackedScene>("res://Exemples/Scenes/Lobby.tscn").Instance();
         GetTree().Root.CallDeferred("add_child", lobbyScene);
+        
+        // Wait until the node is actually spawned
+        while(GetTree().Root.GetNodeOrNull("Lobby") == null)
+        {
+            await Task.Delay(5);
+        }
+        
         LobbyManager manager = lobbyScene as LobbyManager;
-
         manager.Initialize(new Lobby(), false, null, nickname.Text);
     }
 

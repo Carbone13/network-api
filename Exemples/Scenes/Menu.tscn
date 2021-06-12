@@ -46,9 +46,8 @@ anchor_bottom = 0.5
 margin_left = 30.0
 margin_top = -82.0
 margin_right = 235.0
-margin_bottom = 53.0
+margin_bottom = 84.0
 __meta__ = {
-"_edit_group_": true,
 "_edit_use_anchors_": false
 }
 
@@ -84,11 +83,22 @@ __meta__ = {
 "_edit_use_anchors_": false
 }
 
+[node name="Max Player" type="Label" parent="Hosting"]
+margin_left = 4.76823
+margin_top = 93.0332
+margin_right = 86.7682
+margin_bottom = 114.033
+text = "Max Player:"
+valign = 1
+__meta__ = {
+"_edit_use_anchors_": false
+}
+
 [node name="Host Button" type="Button" parent="Hosting"]
 margin_left = 59.8128
-margin_top = 104.376
+margin_top = 134.376
 margin_right = 152.813
-margin_bottom = 126.376
+margin_bottom = 156.376
 text = "HOST"
 __meta__ = {
 "_edit_use_anchors_": false
@@ -110,6 +120,31 @@ margin_top = 67.0332
 margin_right = 196.0
 margin_bottom = 91.0332
 secret = true
+__meta__ = {
+"_edit_use_anchors_": false
+}
+
+[node name="Max Player Slider" type="HSlider" parent="Hosting"]
+margin_left = 87.0
+margin_top = 93.0
+margin_right = 178.0
+margin_bottom = 111.0
+min_value = 1.0
+max_value = 3.0
+value = 3.0
+scrollable = false
+tick_count = 3
+__meta__ = {
+"_edit_use_anchors_": false
+}
+
+[node name="Max Player Count" type="Label" parent="Hosting"]
+margin_left = 183.403
+margin_top = 96.0
+margin_right = 196.403
+margin_bottom = 110.0
+text = "3"
+align = 2
 __meta__ = {
 "_edit_use_anchors_": false
 }
@@ -190,6 +225,7 @@ __meta__ = {
 }
 
 [connection signal="pressed" from="Hosting/Host Button" to="." method="TryLobbyCreation"]
+[connection signal="value_changed" from="Hosting/Max Player Slider" to="." method="OnMaxPlayerSliderChange"]
 [connection signal="pressed" from="Lobbies/Refresh" to="." method="RefreshLobbyList"]
 [connection signal="item_selected" from="Lobbies/List" to="." method="LobbySelected"]
 [connection signal="pressed" from="Lobbies/Join Button" to="." method="TryLobbyJoin"]

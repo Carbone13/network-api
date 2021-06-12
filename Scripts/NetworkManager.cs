@@ -53,8 +53,13 @@ namespace Network
             GD.Print("> Received connection order");
 
             NetPeer peer = await TryConnect(order);
-            OnConnectionOrderTreated?.Invoke(peer, order);
+            ConnectionOrderTreated(peer, order);
         }
+
+        public void ConnectionOrderTreated (NetPeer peer, ConnectTowardOrder order)
+        {
+            OnConnectionOrderTreated?.Invoke(peer, order);
+        }       
 
         public async Task<NetPeer> TryConnect (ConnectTowardOrder order)
         {
@@ -68,7 +73,8 @@ namespace Network
                 targetAddress = new PeerAddress(order.addresses.Public.Address.ToString(), order.addresses.Public.Port);
 
             // TODO find something more elegant than this shit
-            if(lanHost) await Task.Delay(20);
+            if(lanHost) 
+                await Task.Delay(20);
 
             NetPeer con = NetworkManager.singleton.Connect(targetAddress, "");
             await Task.Delay(500);

@@ -2,6 +2,7 @@
 using LiteNetLib;
 using LiteNetLib.Utils;
 
+// TODO remove lobby list
 // TODO rework packets for v2
 namespace Network.Packet
 {

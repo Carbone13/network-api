@@ -11,6 +11,8 @@ public class MenuManager : Node
 {
     public AcceptDialog popup;
     public LineEdit nickname, lobbyName, lobbyPassword;
+    public HSlider maxPlayerSlider;
+    public Label maxPlayerLabel;
     public ItemList lobbyList;
 
     public NetPeer toNat;
@@ -33,6 +35,8 @@ public class MenuManager : Node
 
         NetworkManager.Processor.SubscribeReusable<Lobby>(ReceiveLobbyInfo);
         NetworkManager.Processor.SubscribeReusable<LobbyConnectConfirmationFromHost>(OnConnectionToLobbyConfirmed);
+
+        _maxPlayer = (int)maxPlayerSlider.Value;
     }
 
     public void OnConnected (NetPeer who)
@@ -68,7 +72,7 @@ public class MenuManager : Node
         hosted.LobbyName = lobbyName.Text;
         hosted.HostPublicAddress = new IPEndPoint(IPAddress.Any, 0000);
         hosted.PlayerCount = 1;
-        hosted.MaxPlayer = 3;
+        hosted.MaxPlayer = _maxPlayer;
         
         GD.Print(" >> Setted up lobby.");
         GD.Print("  >>> Registering our server toward Lobby-Er");
@@ -105,6 +109,8 @@ public class MenuManager : Node
         order.HostPublicAddress = selected.HostPublicAddress;
         
         toNat.Send(NetworkManager.Processor.Write(order), DeliveryMethod.ReliableOrdered);
+
+        
     }
 
     private bool _connectedToLobby;
@@ -120,7 +126,7 @@ public class MenuManager : Node
         toNat.Disconnect();
 
         Node lobbyScene = ResourceLoader.Load<PackedScene>("res://Exemples/Scenes/Lobby.tscn").Instance();
-        GetTree().Root.AddChild(lobbyScene);
+        GetTree().Root.CallDeferred("add_child", lobbyScene);
         LobbyManager manager = lobbyScene as LobbyManager;
 
         manager.Initialize(new Lobby(), false, null, nickname.Text);
@@ -154,6 +160,14 @@ public class MenuManager : Node
         selectedLobbyID = id;
     }
 
+    private int _maxPlayer;
+
+    public void OnMaxPlayerSliderChange (float maxPlayer)
+    {
+        _maxPlayer = (int)maxPlayer;
+        maxPlayerLabel.Text = _maxPlayer.ToString();
+    }
+
     private void GatherReferences ()
     {
         popup = GetNode<AcceptDialog>("Popup");
@@ -163,5 +177,8 @@ public class MenuManager : Node
         nickname = GetNode<LineEdit>("Nickname/LineEdit");
         lobbyName = GetNode<LineEdit>("Hosting/Name input");
         lobbyPassword = GetNode<LineEdit>("Hosting/Password input");
+
+        maxPlayerLabel = GetNode<Label>("Hosting/Max Player Count");
+        maxPlayerSlider = GetNode<HSlider>("Hosting/Max Player Slider");
     }
 }

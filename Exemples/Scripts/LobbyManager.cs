@@ -19,7 +19,9 @@ public class LobbyManager : Node
     private string _nickname;
 
     public Dictionary<NetPeer, EndpointCouple> connectedClients = new Dictionary<NetPeer, EndpointCouple>();
-    
+
+    private Lobby _lobby;
+
     public void Initialize (Lobby lobby, bool host, NetPeer nat, string nickname)
     {
         NetworkManager.singleton.lanHost = host;
@@ -31,6 +33,7 @@ public class LobbyManager : Node
         if (host) _nat = nat;
         _isHost = host;
         _nickname = nickname;
+        _lobby = lobby;
 
         NetworkManager.Processor.SubscribeReusable<LobbyMessage>(MessagePacketReceived);
 
@@ -42,6 +45,14 @@ public class LobbyManager : Node
     {
         if(newPeer == null) return;
         if(!_isHost) return;
+
+        if(_lobby.PlayerCount >= _lobby.MaxPlayer)
+        {
+            newPeer.Send(NetworkManager.Processor.Write(new Network.Packet.Error(4)), DeliveryMethod.ReliableOrdered);
+            newPeer.Disconnect();
+            GD.Print("New peer joined but we are full");
+            return;
+        }
 
         connectedClients.Add(newPeer, new EndpointCouple(initialOrder.addresses.Public, initialOrder.addresses.Private));
 
@@ -67,6 +78,10 @@ public class LobbyManager : Node
                 newPeer.Send(NetworkManager.Processor.Write(_connectToPresentPeer), DeliveryMethod.ReliableOrdered);
             }
         }
+
+        // Update our lobby statut
+        _lobby.PlayerCount = connectedClients.Count + 1;
+        _nat.Send(NetworkManager.Processor.Write(_lobby), DeliveryMethod.ReliableOrdered);
     }
 
     // Chatbox specific

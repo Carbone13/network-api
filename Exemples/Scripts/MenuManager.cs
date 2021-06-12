@@ -73,6 +73,7 @@ public class MenuManager : Node
         hosted.LobbyName = lobbyName.Text;
         hosted.HostPublicAddress = new IPEndPoint(IPAddress.Any, 0000);
         hosted.PlayerCount = 1;
+        hosted.MaxPlayer = 3;
         
         GD.Print(" >> Setted up lobby.");
         GD.Print("  >>> Registering our server toward Lobby-Er");
@@ -120,8 +121,6 @@ public class MenuManager : Node
         GD.Print(">> Loading the Lobby...");
         GD.Print(">> Disconnecting from Lobby-Er");
         toNat.Disconnect();
-        
-        GD.Print("Nice.");
 
         Node lobbyScene = ResourceLoader.Load<PackedScene>("res://Exemples/Scenes/Lobby.tscn").Instance();
         GetTree().Root.AddChild(lobbyScene);
@@ -148,7 +147,7 @@ public class MenuManager : Node
     {
         GD.Print("  >>> Received one lobby-answer from the Lobby-Er");
         lobbies.Add(lobby);
-        lobbyList.AddItem(lobby.LobbyName + " - hosted by " + lobby.HostName);
+        lobbyList.AddItem(lobby.LobbyName + " - hosted by " + lobby.HostName + " (" + lobby.PlayerCount + "/" + lobby.MaxPlayer + ")");
     }
 
     private int selectedLobbyID;

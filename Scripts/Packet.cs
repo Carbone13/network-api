@@ -64,6 +64,7 @@ namespace Network.Packet
         public string LobbyName { get; set; }
         public string HostName { get; set; }
         public int PlayerCount { get; set; }
+        public int MaxPlayer { get; set;}
     }
 
     // Ask to join a specific lobby
@@ -73,6 +74,7 @@ namespace Network.Packet
         public string LobbyName { get; set; }
         public string HostName { get; set; }
         public int PlayerCount { get; set; }
+        public int MaxPlayer { get; set;}
     }
 
     // Order packet, sent by Lobby-Er or by an Host only (as this require strong authority)
@@ -81,9 +83,9 @@ namespace Network.Packet
     public class ConnectTowardOrder
     {
         public EndpointCouple addresses { get; set; }
-        public bool usePrivate { get; set;}  
+        public bool usePrivate { get; set; }
 
-        public IPEndPoint EndPoint () => usePrivate ? addresses.Private : addresses.Public;  
+        public IPEndPoint EndPoint() => usePrivate ? addresses.Private : addresses.Public;
 
         public ConnectTowardOrder(EndpointCouple endpoints)
         {
@@ -95,7 +97,13 @@ namespace Network.Packet
             addresses = new EndpointCouple(_private, _public);
         }
 
-        public ConnectTowardOrder() {}
+        public ConnectTowardOrder(IPEndPoint _private, IPEndPoint _public, bool _usePrivate)
+        {
+            addresses = new EndpointCouple(_private, _public);
+            usePrivate = _usePrivate;
+        }
+
+        public ConnectTowardOrder() { }
     }
 
     // Packet Error, see const
@@ -105,8 +113,16 @@ namespace Network.Packet
         public const int LOBBY_HOST_LOST = 1;
         public const int LOBBY_REJECTEd = 2;
         public const int LOBBY_KICKED = 3;
+        public const int LOBBY_FULL = 4;
         
         public int error { get; set; }
+
+        public Error () {}
+
+        public Error(int err)
+        {
+            error = err;
+        }
     }
     
     // Empty packet, sent by a lobby host to someone who just connected successfully !

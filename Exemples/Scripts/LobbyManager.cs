@@ -22,6 +22,7 @@ public class LobbyManager : Node
     
     public void Initialize (Lobby lobby, bool host, NetPeer nat, string nickname)
     {
+        NetworkManager.singleton.lanHost = host;
         GD.Print("> Joined lobby");
         
         GatherNodeReferences();

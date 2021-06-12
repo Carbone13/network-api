@@ -36,6 +36,7 @@ namespace Network
         public Action<ConnectionRequest> ConnectionRequest;
         public Action<NetPeer, NetPacketReader, DeliveryMethod> PacketReception;
         public Action<IPEndPoint, NetPacketReader, UnconnectedMessageType> PacketReceptionUnconnected;
+        public int AwaitingConnection;
 
         #endregion
 
@@ -43,6 +44,7 @@ namespace Network
         {
             Processor = new NetPacketProcessor();
             Processor.RegisterNestedType<PeerAddress>();
+            Processor.RegisterNestedType<EndpointCouple>();
         }
         
         public void Listen (int port = -1)
@@ -69,7 +71,6 @@ namespace Network
                 Listen();
             }
 
-            GD.Print("> connecting to " + address + ":" + port);
             NetPeer peer = net.Connect(address, port, key);
             return peer;
         }
@@ -115,7 +116,7 @@ namespace Network
             while (_listening)
             {
                 net.PollEvents();
-                Thread.Sleep(12);
+                Thread.Sleep(15);
             }
         }
 
@@ -156,6 +157,8 @@ namespace Network
         {
             LatencyUpdate?.Invoke(peer, latency);
         }
+
+        public List<IPEndPoint> awaiting = new List<IPEndPoint>();
 
         public void OnConnectionRequest (ConnectionRequest request)
         {

@@ -19,15 +19,16 @@ namespace Network
 
         public Action<NetPeer, ConnectTowardOrder> OnConnectionOrderTreated;
 
+        public bool lanHost;
+
         public override void _Ready ()
         {
             GD.Print("base init");
             Socket = new Socket();
             Socket.Listen();
-            
-            Processor.SubscribeReusable<ConnectTowardOrder, NetPeer>(TreatConnectionOrder);
 
             singleton = this;
+            Socket.Processor.SubscribeReusable<ConnectTowardOrder, NetPeer>(TreatConnectionOrder);
         }
         
         public NetPeer Connect (PeerAddress address, string key)
@@ -49,9 +50,7 @@ namespace Network
 
         public async void TreatConnectionOrder (ConnectTowardOrder order, NetPeer sender)
         {
-            if(sender != Nat && sender != Host)
-                return;
-
+            // TODO check if sender are clean
             GD.Print("> Received connection order");
 
             NetPeer peer = await TryConnect(order);
@@ -63,12 +62,14 @@ namespace Network
             GD.Print(" >> Trying to connect toward " + (order.usePrivate ? order.addresses.Private : order.addresses.Public));
             int tryCount = 0;
     
-            
             PeerAddress targetAddress = new PeerAddress();
             if(order.usePrivate)
-                targetAddress = new PeerAddress(order.addresses.Private.ToString(), order.addresses.Private.Port);
+                targetAddress = new PeerAddress(order.addresses.Private.Address.ToString(), order.addresses.Private.Port);
             else
-                targetAddress = new PeerAddress(order.addresses.Public.ToString(), order.addresses.Public.Port);
+                targetAddress = new PeerAddress(order.addresses.Public.Address.ToString(), order.addresses.Public.Port);
+
+            // TODO find something more elegant than this shit
+            if(lanHost) await Task.Delay(16);
 
             NetPeer con = NetworkManager.singleton.Connect(targetAddress, "");
             await Task.Delay(500);

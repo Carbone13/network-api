@@ -5,20 +5,32 @@ using LiteNetLib.Utils;
 // TODO rework packets for v2
 namespace Network.Packet
 {
-    public struct EndpointCouple
+    // Public & Private IP inside one struct
+    public struct EndpointCouple : INetSerializable
     {
-        public IPEndPoint Public, Private;
+        public IPEndPoint Public { get; set;}
+        public IPEndPoint Private { get; set;}
 
         public EndpointCouple (IPEndPoint _public, IPEndPoint _private)
         {
             Public = _public;
             Private = _private;
         }
+
+        public void Serialize (NetDataWriter writer)
+        {
+            writer.Put(Public);
+            writer.Put(Private);
+        }
+
+        public void Deserialize (NetDataReader reader)
+        {
+            Public = reader.GetNetEndPoint();
+            Private = reader.GetNetEndPoint();
+        }
     }
 
-    /// <summary>
     /// Represent the address of a peer
-    /// </summary>
     public struct PeerAddress : INetSerializable
     {
         public string Address { get; set; }
@@ -44,6 +56,8 @@ namespace Network.Packet
     }
 
     // Represent a joinable Lobby
+    // If you sent this to the host it will register it as your lobby
+    // Further resent will update the state (you can only have 1 lobby per host)
     public class Lobby
     {
         public IPEndPoint HostPublicAddress { get; set; }
@@ -51,10 +65,6 @@ namespace Network.Packet
         public string HostName { get; set; }
         public int PlayerCount { get; set; }
     }
-
-    
-    // Empty packet, notify that you want to get the lobbies list
-    public class RequestLobbyList {}
 
     // Ask to join a specific lobby
     public class JoinLobby
@@ -65,27 +75,52 @@ namespace Network.Packet
         public int PlayerCount { get; set; }
     }
 
-    // Sent by Lobby-er to client, notify them that they need to connect toward the specified end point
+    // Order packet, sent by Lobby-Er or by an Host only (as this require strong authority)
+    // These packets are managed by the network manager itself
+    // TODO that
     public class ConnectTowardOrder
     {
-        public IPEndPoint target { get; set; }
-        public IPEndPoint privateTarget { get; set; }
-        public bool usePrivate { get; set;}    
+        public EndpointCouple addresses { get; set; }
+        public bool usePrivate { get; set;}  
+
+        public IPEndPoint EndPoint () => usePrivate ? addresses.Private : addresses.Public;  
+
+        public ConnectTowardOrder(EndpointCouple endpoints)
+        {
+            addresses = endpoints;
+        }
+
+        public ConnectTowardOrder(IPEndPoint _private, IPEndPoint _public)
+        {
+            addresses = new EndpointCouple(_private, _public);
+        }
+
+        public ConnectTowardOrder() {}
     }
 
-    // Send an int linking to an error
-    public class NATError
+    // Packet Error, see const
+    public class Error
     {
+        public const int UNKNOWN = 0;
         public const int LOBBY_HOST_LOST = 1;
+        public const int LOBBY_REJECTEd = 2;
+        public const int LOBBY_KICKED = 3;
         
         public int error { get; set; }
     }
     
+    // Empty packet, sent by a lobby host to someone who just connected successfully !
     public class LobbyConnectConfirmationFromHost {}
 
+    // Empty packet, notify that you want to get the lobbies list
+    public class RequestLobbyList {}
+
+    // A message in the lobby's chat
     public class LobbyMessage
     {
+        // Mostly contains the sender's username
         public string header { get; set; }
+        // The message itself
         public string message { get; set; }
     }
 }

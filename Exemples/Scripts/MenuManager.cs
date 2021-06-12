@@ -35,7 +35,7 @@ public class MenuManager : Node
         toNat = NetworkManager.singleton.Connect(new PeerAddress("90.76.187.136", 3456), "");
         NetworkManager.singleton.Socket.PeerConnection += OnConnected;
 
-        NetworkManager.Processor.SubscribeReusable<ConnectTowardOrder, NetPeer>(OnConnectOrderReceived);
+        
         NetworkManager.Processor.SubscribeReusable<Lobby>(ReceiveLobbyInfo);
         NetworkManager.Processor.SubscribeReusable<LobbyConnectConfirmationFromHost>(OnConnectionToLobbyConfirmed);
     }
@@ -110,52 +110,7 @@ public class MenuManager : Node
         toNat.Send(NetworkManager.Processor.Write(order), DeliveryMethod.ReliableOrdered);
     }
 
-    public void OnConnectOrderReceived (ConnectTowardOrder order, NetPeer from)
-    {
-        if (from != toNat) return;
-        
-        GD.Print("> Received connection order");
-        GD.Print(" >> We must connect toward " + order.target);
-
-        //NetworkManager.singleton.Connect(new PeerAddress(order.target.Address.ToString(), order.target.Port), "");
-        TryConnect(order);
-    }
-
-    public async void TryConnect (ConnectTowardOrder order)
-    {
-        GD.Print("  >>> Starting connections request");
-        int tryCount = 0;
-        
-        // This is only relevant on local, you can't connect if you have pending request
-        // TODO cleaner way (like await NoPendingRequest;)
-        if(host)
-            await Task.Delay(10);
-        
-        NetPeer con = NetworkManager.singleton.Connect(new PeerAddress(order.target.Address.ToString(), order.target.Port), "");
-        await Task.Delay(5000);
-        
-        while (con.ConnectionState != ConnectionState.Connected)
-        {
-            if (tryCount > 10)
-            {
-                GD.Print("  >>> Time out !");
-                return;
-            }
-            
-            GD.Print("  >>> Failed ! Retrying in 5 seconds");
-            await Task.Delay(5000);
-            GD.Print("  >>> Retrying to connect...");
-            
-            con.Disconnect();
-            con = NetworkManager.singleton.Connect(new PeerAddress(order.target.Address.ToString(), order.target.Port), "");
-            
-            tryCount++;
-        }
-        
-        GD.Print("  >>> Connected to peer !");
-    }
-
-private bool _connectedToLobby;
+    private bool _connectedToLobby;
     // This is the final packet sent by the host, when every primal connections are successfull
     public void OnConnectionToLobbyConfirmed (LobbyConnectConfirmationFromHost confirmation)
     {

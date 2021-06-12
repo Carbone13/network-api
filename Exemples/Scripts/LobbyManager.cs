@@ -7,12 +7,6 @@ using Network.Packet;
 using LiteNetLib.Utils;
 using System.Collections.Generic;
 
-// TODO on lan we shoud also know our public address
-// TODO on lan we shoud also know our public address
-// TODO on lan we shoud also know our public address
-// TODO on lan we shoud also know our public address
-// TODO on lan we shoud also know our public address
-
 public class LobbyManager : Node
 {
     private NetPeer _nat;
@@ -30,105 +24,51 @@ public class LobbyManager : Node
     {
         GD.Print("> Joined lobby");
         
+        GatherNodeReferences();
         GetTree().Root.RemoveChild(GetTree().Root.GetNode("Menu"));
 
         if (host) _nat = nat;
         _isHost = host;
         _nickname = nickname;
-        
-        NetworkManager.Processor.SubscribeReusable<ConnectTowardOrder, NetPeer>(OnConnectOrderReceived);
+
         NetworkManager.Processor.SubscribeReusable<LobbyMessage>(MessagePacketReceived);
+
+        NetworkManager.singleton.OnConnectionOrderTreated += OnPeerJoin;
     }
 
-    public override void _Ready ()
+    // Network/Lobby management
+    public void OnPeerJoin (NetPeer newPeer, ConnectTowardOrder initialOrder)
     {
-        GatherNodeReferences();
-    }
-
-    public void OnConnectOrderReceived (ConnectTowardOrder order, NetPeer from)
-    {
-        //if (from != _nat) return;
-        
-        GD.Print("> Received connection order");
-        GD.Print(" >> We must connect toward " + order.target);
-
-        TreatOrder(order);
-    }
-
-    public async void TreatOrder (ConnectTowardOrder order)
-    {
-        NetPeer con = await TryConnect(order);
-        if(con == null) return;
-
-        connectedClients.Add(con, new EndpointCouple(order.target, order.privateTarget));
-
-        LobbyConnectConfirmationFromHost conf = new LobbyConnectConfirmationFromHost();
-        con.Send(NetworkManager.Processor.Write(conf), DeliveryMethod.ReliableOrdered);
-        
+        if(newPeer == null) return;
         if(!_isHost) return;
 
-        ConnectTowardOrder _order = new ConnectTowardOrder();
-        _order.privateTarget = connectedClients[con].Private;
-        _order.target = connectedClients[con].Public;
+        connectedClients.Add(newPeer, new EndpointCouple(initialOrder.addresses.Public, initialOrder.addresses.Private));
 
-        foreach(NetPeer alreadyConnect in connectedClients.Keys)
+        LobbyConnectConfirmationFromHost conf = new LobbyConnectConfirmationFromHost();
+        newPeer.Send(NetworkManager.Processor.Write(conf), DeliveryMethod.ReliableOrdered);
+        
+    
+        ConnectTowardOrder _connectToNewPeer = new ConnectTowardOrder(connectedClients[newPeer]);
+
+        foreach(NetPeer alreadyConnected in connectedClients.Keys)
         {
-            if(alreadyConnect != con)
+            if(alreadyConnected != newPeer)
             {
-                ConnectTowardOrder _other = new ConnectTowardOrder();
-                _other.target = connectedClients[alreadyConnect].Public;
-                _other.privateTarget = connectedClients[alreadyConnect].Private;
+                // Trade addressed !
+                ConnectTowardOrder _connectToPresentPeer = new ConnectTowardOrder(connectedClients[alreadyConnected]);
 
-                bool usePrivate = _order.target.Address.ToString() == _other.target.Address.ToString();
-                _order.usePrivate = usePrivate;
-                _other.usePrivate = usePrivate;
+                bool usePrivate = 
+                    _connectToNewPeer.addresses.Private.Address.ToString() == _connectToPresentPeer.addresses.Private.Address.ToString();
+                _connectToNewPeer.usePrivate = usePrivate;
+                _connectToPresentPeer.usePrivate = usePrivate;
 
-                alreadyConnect.Send(NetworkManager.Processor.Write(_order), DeliveryMethod.ReliableOrdered);
-                con.Send(NetworkManager.Processor.Write(_other), DeliveryMethod.ReliableOrdered);
+                alreadyConnected.Send(NetworkManager.Processor.Write(_connectToNewPeer), DeliveryMethod.ReliableOrdered);
+                newPeer.Send(NetworkManager.Processor.Write(_connectToPresentPeer), DeliveryMethod.ReliableOrdered);
             }
         }
     }
 
-    public async Task<NetPeer> TryConnect (ConnectTowardOrder order)
-    {
-        GD.Print("> Trying to connect toward " + (order.usePrivate ? order.privateTarget : order.target));
-        
-        int tryCount = 0;
-        
-        if(_isHost)
-            await Task.Delay(100);
-        
-        PeerAddress targetAddress = new PeerAddress();
-        if(order.usePrivate)
-            targetAddress = new PeerAddress(order.privateTarget.Address.ToString(), order.privateTarget.Port);
-        else
-            targetAddress = new PeerAddress(order.target.Address.ToString(), order.target.Port);
-        
-        NetPeer con = NetworkManager.singleton.Connect(targetAddress, "");
-        await Task.Delay(500);
-        
-        while (con.ConnectionState != ConnectionState.Connected)
-        {
-            if (tryCount > 3)
-            {
-                GD.Print(" >> Time out !");
-                return null;
-            }
-
-            GD.Print(" >> Failed to connect, retrying...");
-            await Task.Delay(500);
-            
-            // Retry
-            con.Disconnect();
-            con = NetworkManager.singleton.Connect(targetAddress, "");
-            
-            tryCount++;
-        }
-        
-        GD.Print(" >> Connected to peer !");
-
-        return con; 
-    }
+    // Chatbox specific
 
     public override void _Input (InputEvent @event)
     {

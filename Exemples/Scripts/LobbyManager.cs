@@ -14,6 +14,7 @@ public class LobbyManager : Node
     private Button _host, _join, _leave;
     private LineEdit _textInput;
     private TextEdit _chatBox;
+    public Label _connectedCount;
 
     private bool _isHost;
     private string _nickname;
@@ -38,6 +39,8 @@ public class LobbyManager : Node
         NetworkManager.Processor.SubscribeReusable<LobbyMessage>(MessagePacketReceived);
 
         NetworkManager.singleton.OnConnectionOrderTreated += OnPeerJoin;
+
+         _connectedCount.Text = _lobby.PlayerCount + "/" + _lobby.MaxPlayer;
     }
 
     // Network/Lobby management
@@ -66,7 +69,7 @@ public class LobbyManager : Node
         {
             if(alreadyConnected != newPeer)
             {
-                // Trade addressed !
+                // Trade addresses !
                 ConnectTowardOrder _connectToPresentPeer = new ConnectTowardOrder(connectedClients[alreadyConnected]);
 
                 bool usePrivate = 
@@ -82,6 +85,8 @@ public class LobbyManager : Node
         // Update our lobby statut
         _lobby.PlayerCount = connectedClients.Count + 1;
         _nat.Send(NetworkManager.Processor.Write(_lobby), DeliveryMethod.ReliableOrdered);
+
+        _connectedCount.Text = _lobby.PlayerCount + "/" + _lobby.MaxPlayer;
     }
 
     // Chatbox specific
@@ -132,5 +137,7 @@ public class LobbyManager : Node
         
         _textInput = GetNode<LineEdit>("Panel/Input");
         _chatBox = GetNode<TextEdit>("Panel/Chatbox");
+
+        _connectedCount = GetNode<Label>("Connected");
     }
 }

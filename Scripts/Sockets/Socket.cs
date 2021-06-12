@@ -116,7 +116,7 @@ namespace Network
             while (_listening)
             {
                 net.PollEvents();
-                Thread.Sleep(15);
+                Thread.Sleep(10);
             }
         }
 

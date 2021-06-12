@@ -23,7 +23,6 @@ namespace Network
 
         public override void _Ready ()
         {
-            GD.Print("base init");
             Socket = new Socket();
             Socket.Listen();
 
@@ -69,7 +68,7 @@ namespace Network
                 targetAddress = new PeerAddress(order.addresses.Public.Address.ToString(), order.addresses.Public.Port);
 
             // TODO find something more elegant than this shit
-            if(lanHost) await Task.Delay(16);
+            if(lanHost) await Task.Delay(20);
 
             NetPeer con = NetworkManager.singleton.Connect(targetAddress, "");
             await Task.Delay(500);

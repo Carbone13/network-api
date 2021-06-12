@@ -7,9 +7,6 @@ using System.Threading.Tasks;
 using LiteNetLib;
 using Network.Packet;
 
-// TODO Setup the web (host side)
-// TODO Also include private endpoint (with a simple logic bool to know which one to use, it is enough imo, can be done here instead of Lobby-Er)
-// TODO reduce await times (find good value/change logic)
 public class MenuManager : Node
 {
     public AcceptDialog popup;
@@ -24,7 +21,6 @@ public class MenuManager : Node
 
     private bool host;
     //TODO check if sender is the intended sender at most of the packet
-    // (for v2 only tho)
     public override void _Ready ()
     {
         GatherReferences();
@@ -35,7 +31,6 @@ public class MenuManager : Node
         toNat = NetworkManager.singleton.Connect(new PeerAddress("90.76.187.136", 3456), "");
         NetworkManager.singleton.Socket.PeerConnection += OnConnected;
 
-        
         NetworkManager.Processor.SubscribeReusable<Lobby>(ReceiveLobbyInfo);
         NetworkManager.Processor.SubscribeReusable<LobbyConnectConfirmationFromHost>(OnConnectionToLobbyConfirmed);
     }
@@ -83,7 +78,8 @@ public class MenuManager : Node
         Node lobbyScene = ResourceLoader.Load<PackedScene>("res://Exemples/Scenes/Lobby.tscn").Instance();
         GetTree().Root.AddChild(lobbyScene);
         LobbyManager manager = lobbyScene as LobbyManager;
-        manager.Initialize(new Lobby(), true, toNat, nickname.Text);
+
+        manager.Initialize(hosted, true, toNat, nickname.Text);
     }
 
     public void TryLobbyJoin ()
@@ -112,20 +108,21 @@ public class MenuManager : Node
     }
 
     private bool _connectedToLobby;
+    
     // This is the final packet sent by the host, when every primal connections are successfull
     public void OnConnectionToLobbyConfirmed (LobbyConnectConfirmationFromHost confirmation)
     {
         if(_connectedToLobby) return;
         _connectedToLobby = true;
         GD.Print("> Host accepted us !");
-        GD.Print(">> Loading the Lobby...");
-        GD.Print(">> Disconnecting from Lobby-Er");
+        GD.Print(" >> Loading the Lobby...");
+        GD.Print(" >> Disconnecting from Lobby-Er");
         toNat.Disconnect();
 
         Node lobbyScene = ResourceLoader.Load<PackedScene>("res://Exemples/Scenes/Lobby.tscn").Instance();
         GetTree().Root.AddChild(lobbyScene);
         LobbyManager manager = lobbyScene as LobbyManager;
-        
+
         manager.Initialize(new Lobby(), false, null, nickname.Text);
     }
 

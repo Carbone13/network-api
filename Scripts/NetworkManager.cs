@@ -5,6 +5,8 @@ using Network.Packet;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using System.Net;
+using System.Net.Sockets;
+using System.Net.NetworkInformation;
 using System;
 
 namespace Network
@@ -28,7 +30,15 @@ namespace Network
             Socket = new Socket();
             Socket.Listen();
 
-            IPEndPoint _private = new IPEndPoint(IPAddress.Parse("127.0.0.1"), Socket.net.LocalPort);
+            IPAddress localIP = IPAddress.Any;
+            using (System.Net.Sockets.Socket socket = new System.Net.Sockets.Socket(AddressFamily.InterNetwork, SocketType.Dgram, 0))
+            {
+                socket.Connect("8.8.8.8", 65530);
+                IPEndPoint endPoint = socket.LocalEndPoint as IPEndPoint;
+                localIP = endPoint.Address;
+            }
+
+            IPEndPoint _private = new IPEndPoint(localIP, Socket.net.LocalPort);
             IPEndPoint _public = new IPEndPoint(IPAddress.Any, Socket.net.LocalPort);
 
             Us = new NetworkPeer("", new EndpointCouple(_public, _private));

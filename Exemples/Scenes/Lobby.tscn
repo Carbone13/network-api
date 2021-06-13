@@ -1,20 +1,26 @@
-[gd_scene load_steps=4 format=2]
+[gd_scene load_steps=6 format=2]
 
 [ext_resource path="res://Exemples/Scripts/LobbyManager.cs" type="Script" id=1]
 [ext_resource path="res://Exemples/Assets/Roboto-Regular.ttf" type="DynamicFontData" id=2]
 
 [sub_resource type="DynamicFont" id=1]
-size = 25
+size = 22
+use_filter = true
+font_data = ExtResource( 2 )
+
+[sub_resource type="DynamicFont" id=2]
+size = 18
+use_filter = true
+font_data = ExtResource( 2 )
+
+[sub_resource type="DynamicFont" id=3]
+size = 17
 use_filter = true
 font_data = ExtResource( 2 )
 
 [node name="Lobby" type="Control"]
 anchor_right = 1.0
 anchor_bottom = 1.0
-margin_left = 10.3181
-margin_top = 1.5874
-margin_right = 10.3181
-margin_bottom = 1.5874
 script = ExtResource( 1 )
 __meta__ = {
 "_edit_use_anchors_": false
@@ -23,19 +29,20 @@ __meta__ = {
 [node name="Leave Button" type="Button" parent="."]
 anchor_left = 0.5
 anchor_right = 0.5
-margin_left = -320.0
-margin_top = 13.4108
-margin_right = -253.0
-margin_bottom = 41.4108
+margin_left = -308.0
+margin_top = 13.0
+margin_right = -241.0
+margin_bottom = 41.0
 text = "LEAVE"
 __meta__ = {
 "_edit_use_anchors_": false
 }
 
 [node name="Panel" type="Panel" parent="."]
-margin_top = 142.0
-margin_right = 490.0
-margin_bottom = 357.0
+margin_left = 12.0
+margin_top = 136.0
+margin_right = 455.0
+margin_bottom = 351.0
 __meta__ = {
 "_edit_group_": true,
 "_edit_use_anchors_": false
@@ -46,10 +53,10 @@ anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-margin_left = -235.5
-margin_top = -100.0
-margin_right = 235.5
-margin_bottom = 72.0
+margin_left = -211.5
+margin_top = -99.5
+margin_right = 208.5
+margin_bottom = 72.5
 readonly = true
 syntax_highlighting = true
 smooth_scrolling = true
@@ -61,7 +68,7 @@ __meta__ = {
 [node name="Input" type="LineEdit" parent="Panel"]
 margin_left = 10.0
 margin_top = 184.0
-margin_right = 481.0
+margin_right = 430.0
 margin_bottom = 208.0
 clear_button_enabled = true
 placeholder_text = "Send message..."
@@ -70,15 +77,52 @@ __meta__ = {
 "_edit_use_anchors_": false
 }
 
-[node name="Connected" type="Label" parent="."]
-margin_left = 580.248
-margin_top = 3.73321
-margin_right = 621.248
-margin_bottom = 34.7332
+[node name="Connected" type="Panel" parent="."]
+margin_left = 471.0
+margin_top = 136.0
+margin_right = 622.0
+margin_bottom = 316.0
+__meta__ = {
+"_edit_use_anchors_": false
+}
+
+[node name="Label" type="Label" parent="Connected"]
+margin_left = 59.8711
+margin_right = 100.871
+margin_bottom = 31.0
 custom_fonts/font = SubResource( 1 )
 text = "1/3"
 __meta__ = {
 "_edit_use_anchors_": false
 }
+
+[node name="Players" type="ItemList" parent="Connected"]
+margin_left = 7.0
+margin_top = 31.0
+margin_right = 143.0
+margin_bottom = 137.0
+custom_fonts/font = SubResource( 2 )
+items = [ "ABB (you)", null, true ]
+__meta__ = {
+"_edit_use_anchors_": false
+}
+
+[node name="Kick" type="Button" parent="Connected"]
+margin_left = 38.5572
+margin_top = 150.802
+margin_right = 109.557
+margin_bottom = 170.802
+text = "KICK"
+__meta__ = {
+"_edit_use_anchors_": false
+}
+
+[node name="Button" type="Button" parent="."]
+margin_left = 556.0
+margin_top = 13.0
+margin_right = 626.0
+margin_bottom = 41.0
+custom_fonts/font = SubResource( 3 )
+text = "START"
 
 [connection signal="pressed" from="Leave Button" to="." method="LeaveRoom"]

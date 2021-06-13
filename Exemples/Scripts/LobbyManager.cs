@@ -6,6 +6,7 @@ using Network;
 using Network.Packet;
 using LiteNetLib.Utils;
 using System.Collections.Generic;
+using System.Linq;
 
 public class LobbyManager : Node
 {
@@ -14,12 +15,13 @@ public class LobbyManager : Node
     private Button _host, _join, _leave;
     private LineEdit _textInput;
     private TextEdit _chatBox;
+
     public Label _connectedCount;
 
     private bool _isHost;
     private string _nickname;
 
-    public Dictionary<NetPeer, EndpointCouple> connectedClients = new Dictionary<NetPeer, EndpointCouple>();
+    public Dictionary<NetPeer, NetworkPeer> connectedClients = new Dictionary<NetPeer, NetworkPeer>();
 
     private Lobby _lobby;
 
@@ -36,57 +38,90 @@ public class LobbyManager : Node
         _nickname = nickname;
         _lobby = lobby;
 
-        NetworkManager.Processor.SubscribeReusable<LobbyMessage>(MessagePacketReceived);
+        NetworkManager.Processor.SubscribeReusable<LobbyChatMessage>(MessagePacketReceived);
+        NetworkManager.Processor.SubscribeReusable<RegisterAndUpdateLobbyState, NetPeer>(OnLobbyUpdate);
 
-        NetworkManager.singleton.OnConnectionOrderTreated += OnPeerJoin;
+        NetworkManager.singleton.OnHolePunchSuccess += OnPeerJoin;
+        NetworkManager.singleton.Socket.PeerDisconnection += OnDisconnect;
 
-         _connectedCount.Text = _lobby.PlayerCount + "/" + _lobby.MaxPlayer;
+         _connectedCount.Text = _lobby.ConnectedPeers.Count + "/" + _lobby.MaxAuthorizedPlayer;
+    }
+
+    public void OnLobbyUpdate (RegisterAndUpdateLobbyState updatedLobby, NetPeer sender)
+    {
+        GD.Print("> Received lobby update");
+        if(!updatedLobby.CheckIfLegit()) return;
+
+        _lobby = updatedLobby.Lobby;
+
+        _connectedCount.Text = _lobby.ConnectedPeers.Count + "/" + _lobby.MaxAuthorizedPlayer;
+    }
+
+    public void OnDisconnect (NetPeer peer, DisconnectInfo info)
+    {
+        if(peer.EndPoint.ToString() == _lobby.Host.Endpoints.Public.ToString() ||
+                peer.EndPoint.ToString() == _lobby.Host.Endpoints.Private.ToString())
+        {
+            GD.Print("Refused from lobby/Kicked");
+
+            Node menuScene = ResourceLoader.Load<PackedScene>("res://Exemples/Scenes/Menu.tscn").Instance();
+            GetTree().Root.AddChild(menuScene);
+            MenuManager manager = menuScene as MenuManager;
+
+            GetTree().Root.RemoveChild(GetTree().Root.GetNode("Lobby"));
+
+            manager.popup.DialogText = "Host refused/kicked us !";
+            manager.popup.Show();
+        }
     }
 
     // Network/Lobby management
-    public void OnPeerJoin (NetPeer newPeer, ConnectTowardOrder initialOrder)
+    public void OnPeerJoin (NetPeer peer, NetworkPeer peerInfo, HolePunchAddress initialOrder)
     {
-        if(newPeer == null) return;
+        if(peer == null) return;
         if(!_isHost) return;
 
-        if(_lobby.PlayerCount >= _lobby.MaxPlayer)
+        if(_lobby.ConnectedPeers.Count >= _lobby.MaxAuthorizedPlayer)
         {
-            newPeer.Send(NetworkManager.Processor.Write(new Network.Packet.Error(4)), DeliveryMethod.ReliableOrdered);
-            newPeer.Disconnect();
+            // TODO
+            peer.Disconnect();
             GD.Print("New peer joined but we are full");
             return;
         }
 
-        connectedClients.Add(newPeer, new EndpointCouple(initialOrder.addresses.Public, initialOrder.addresses.Private));
 
-        LobbyConnectConfirmationFromHost conf = new LobbyConnectConfirmationFromHost();
-        newPeer.Send(NetworkManager.Processor.Write(conf), DeliveryMethod.ReliableOrdered);
-        
-    
-        ConnectTowardOrder _connectToNewPeer = new ConnectTowardOrder(connectedClients[newPeer]);
+        connectedClients.Add(peer, peerInfo);
+
+        HolePunchAddress _connectToNewPeer = new HolePunchAddress(NetworkManager.singleton.Us, connectedClients[peer], false);
 
         foreach(NetPeer alreadyConnected in connectedClients.Keys)
         {
-            if(alreadyConnected != newPeer)
+            if(alreadyConnected != peer)
             {
                 // Trade addresses !
-                ConnectTowardOrder _connectToPresentPeer = new ConnectTowardOrder(connectedClients[alreadyConnected]);
+                HolePunchAddress _connectToPresentPeer = new HolePunchAddress(NetworkManager.singleton.Us, connectedClients[alreadyConnected], false);
 
                 bool usePrivate = 
-                    _connectToNewPeer.addresses.Private.Address.ToString() == _connectToPresentPeer.addresses.Private.Address.ToString();
-                _connectToNewPeer.usePrivate = usePrivate;
-                _connectToPresentPeer.usePrivate = usePrivate;
+                    _connectToNewPeer.Target.Endpoints.Public.Address.ToString() == _connectToPresentPeer.Target.Endpoints.Public.Address.ToString();
+                _connectToNewPeer.UsePrivate = usePrivate;
+                _connectToPresentPeer.UsePrivate = usePrivate;
+
 
                 alreadyConnected.Send(NetworkManager.Processor.Write(_connectToNewPeer), DeliveryMethod.ReliableOrdered);
-                newPeer.Send(NetworkManager.Processor.Write(_connectToPresentPeer), DeliveryMethod.ReliableOrdered);
+                peer.Send(NetworkManager.Processor.Write(_connectToPresentPeer), DeliveryMethod.ReliableOrdered);
             }
         }
 
         // Update our lobby statut
-        _lobby.PlayerCount = connectedClients.Count + 1;
-        _nat.Send(NetworkManager.Processor.Write(_lobby), DeliveryMethod.ReliableOrdered);
+        _lobby.ConnectedPeers.Add(connectedClients[peer]);
+        
+        RegisterAndUpdateLobbyState update = new RegisterAndUpdateLobbyState(NetworkManager.singleton.Us, _lobby);
+        update.Send(_nat, DeliveryMethod.ReliableOrdered);
 
-        _connectedCount.Text = _lobby.PlayerCount + "/" + _lobby.MaxPlayer;
+        foreach(NetPeer _peer in connectedClients.Keys)
+            update.Send(_peer, DeliveryMethod.ReliableOrdered);
+
+        _connectedCount.Text = _lobby.ConnectedPeers.Count + "/" + _lobby.MaxAuthorizedPlayer;
     }
 
     // Chatbox specific
@@ -103,11 +138,7 @@ public class LobbyManager : Node
                     
                     NetDataWriter writer = new NetDataWriter();
                     
-                    LobbyMessage lm = new LobbyMessage()
-                    {
-                        header =  _nickname + ": ",
-                        message = _textInput.Text,
-                    };
+                    LobbyChatMessage lm = new LobbyChatMessage(NetworkManager.singleton.Us, _textInput.Text);
                     
                     writer.Reset();
                     NetworkManager.Processor.Write(writer, lm);
@@ -120,15 +151,15 @@ public class LobbyManager : Node
         }
     }
     
-    public void MessagePacketReceived (LobbyMessage message)
+    public void MessagePacketReceived (LobbyChatMessage message)
     {
         GD.Print("> Received message packet");
         AddLine(message);
     }
 
-    private void AddLine (LobbyMessage message)
+    private void AddLine (LobbyChatMessage message)
     {
-        _chatBox.Text += message.header + message.message + "\n";
+        _chatBox.Text += message.Sender.Nickname + ": " + message.Message + "\n";
     }
     
     private void GatherNodeReferences ()
@@ -138,6 +169,6 @@ public class LobbyManager : Node
         _textInput = GetNode<LineEdit>("Panel/Input");
         _chatBox = GetNode<TextEdit>("Panel/Chatbox");
 
-        _connectedCount = GetNode<Label>("Connected");
+        _connectedCount = GetNode<Label>("Connected/Label");
     }
 }

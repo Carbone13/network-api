@@ -22,7 +22,8 @@ public class MenuManager : Node
     private bool _connectedToNat;
 
     private bool host;
-    //TODO check if sender is the intended sender at most of the packet
+    private Lobby targetLobby;
+
     public override void _Ready ()
     {
         GatherReferences();
@@ -30,11 +31,12 @@ public class MenuManager : Node
         GD.Print("> Connecting to Lobby-Er");
         GD.Print(" >> Waiting for confirmation...");
         
-        toNat = NetworkManager.singleton.Connect(new PeerAddress("90.76.187.136", 3456), "");
+        toNat = NetworkManager.singleton.TryConnect(new IPEndPoint(IPAddress.Parse("90.76.187.136"), 3456), "");
+
         NetworkManager.singleton.Socket.PeerConnection += OnConnected;
 
-        NetworkManager.Processor.SubscribeReusable<Lobby>(ReceiveLobbyInfo);
-        NetworkManager.Processor.SubscribeReusable<LobbyConnectConfirmationFromHost>(OnConnectionToLobbyConfirmed);
+        NetworkManager.Processor.SubscribeReusable<LobbyListAnswer>(ReceiveLobbyInfo);
+        //NetworkManager.Processor.SubscribeReusable<LobbyConnectConfirmationFromHost>(OnConnectionToLobbyConfirmed);
 
         _maxPlayer = (int)maxPlayerSlider.Value;
     }
@@ -45,6 +47,14 @@ public class MenuManager : Node
         {
             GD.Print(" >> Connected !");
             _connectedToNat = true;
+        }
+        if(targetLobby.Host.Endpoints.Private != null)
+        {
+            if(who.EndPoint.ToString() == targetLobby.Host.Endpoints.Private.ToString() || 
+            who.EndPoint.ToString() == targetLobby.Host.Endpoints.Public.ToString())
+            {
+                OnConnectionToLobbyConfirmed();
+            }
         }
     }
 
@@ -66,17 +76,19 @@ public class MenuManager : Node
             popup.Show();
             return;
         }
+        NetworkManager.singleton.lanHost = true;
 
-        Lobby hosted = new Lobby();
-        hosted.HostName = nickname.Text;
-        hosted.LobbyName = lobbyName.Text;
-        hosted.HostPublicAddress = new IPEndPoint(IPAddress.Any, 0000);
-        hosted.PlayerCount = 1;
-        hosted.MaxPlayer = _maxPlayer;
-        
+        NetworkManager.singleton.Us.HighAuthority = true;
+        NetworkManager.singleton.Us.Nickname = nickname.Text;
+        Lobby hosted = new Lobby(NetworkManager.singleton.Us, lobbyName.Text, PasswordHasher.Hash(lobbyPassword.Text, 1000), _maxPlayer, new List<NetworkPeer>());
+        hosted.ConnectedPeers.Add(NetworkManager.singleton.Us);
+
         GD.Print(" >> Setted up lobby.");
         GD.Print("  >>> Registering our server toward Lobby-Er");
-        toNat.Send(NetworkManager.Processor.Write(hosted), DeliveryMethod.ReliableOrdered);
+
+        RegisterAndUpdateLobbyState registering = new RegisterAndUpdateLobbyState(NetworkManager.singleton.Us, hosted);
+        registering.Send(toNat, DeliveryMethod.ReliableOrdered);
+
         host = true;
         
         Node lobbyScene = ResourceLoader.Load<PackedScene>("res://Exemples/Scenes/Lobby.tscn").Instance();
@@ -103,18 +115,20 @@ public class MenuManager : Node
             return;
         }
 
+        NetworkManager.singleton.Us.Nickname = nickname.Text;
         GD.Print("  >> Notifying Lobby-Er that we want to join.");
-        Lobby selected = lobbies[selectedLobbyID];
-        JoinLobby order = new JoinLobby();
-        order.HostPublicAddress = selected.HostPublicAddress;
+        Lobby selectedLobby = lobbies[selectedLobbyID];
+        targetLobby = selectedLobby;
+
+        AskToJoinLobby joinPacket = new AskToJoinLobby(NetworkManager.singleton.Us, selectedLobby, "");
         
-        toNat.Send(NetworkManager.Processor.Write(order), DeliveryMethod.ReliableOrdered);
+        joinPacket.Send(toNat, DeliveryMethod.ReliableOrdered);
     }
 
     private bool _connectedToLobby;
     
-    // This is the final packet sent by the host, when every primal connections are successfull
-    public async void OnConnectionToLobbyConfirmed (LobbyConnectConfirmationFromHost confirmation)
+
+    public async void OnConnectionToLobbyConfirmed ()
     {
         if(_connectedToLobby) return;
         _connectedToLobby = true;
@@ -126,35 +140,43 @@ public class MenuManager : Node
         Node lobbyScene = ResourceLoader.Load<PackedScene>("res://Exemples/Scenes/Lobby.tscn").Instance();
         GetTree().Root.CallDeferred("add_child", lobbyScene);
         
-        // Wait until the node is actually spawned
         while(GetTree().Root.GetNodeOrNull("Lobby") == null)
         {
-            await Task.Delay(5);
+            await Task.Delay(17);
         }
-        
+
         LobbyManager manager = lobbyScene as LobbyManager;
-        manager.Initialize(new Lobby(), false, null, nickname.Text);
+
+        manager.Initialize(targetLobby, false, null, nickname.Text);
     }
 
     public void RefreshLobbyList ()
     {
         GD.Print("> Refreshing lobby list");
-        if(!_connectedToNat) GD.PrintErr(" >> ERROR: not connected to Lobby-Er");
-        
+      
         lobbyList.Clear();
         lobbies.Clear();
         
-        RequestLobbyList request = new RequestLobbyList();
+        QueryLobbyList request = new QueryLobbyList(NetworkManager.singleton.Us);
 
         GD.Print(" >> Sending request to Lobby-Er");
         toNat.Send(NetworkManager.Processor.Write(request), DeliveryMethod.ReliableOrdered);
     }
 
-    public void ReceiveLobbyInfo (Lobby lobby)
+    public void ReceiveLobbyInfo (LobbyListAnswer answer)
     {
-        GD.Print("  >>> Received one lobby-answer from the Lobby-Er");
-        lobbies.Add(lobby);
-        lobbyList.AddItem(lobby.LobbyName + " - hosted by " + lobby.HostName + " (" + lobby.PlayerCount + "/" + lobby.MaxPlayer + ")");
+        if(!answer.CheckIfLegit()) return;
+
+        GD.Print("  >>> Received lobby-answer from the Lobby-Er");
+
+        foreach(Lobby lob in answer.AvailableLobbies)
+        {
+            lobbies.Add(lob);
+            lobbyList.AddItem
+                (lob.Name + " - hosted by " + lob.Host.Nickname + 
+                " (" + lob.ConnectedPeers.Count + "/" + lob.MaxAuthorizedPlayer + ")");
+        }
+        
     }
 
     private int selectedLobbyID;

@@ -4,6 +4,7 @@ using LiteNetLib.Utils;
 using Network.Packet;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using System.Net;
 using System;
 
 namespace Network
@@ -13,11 +14,12 @@ namespace Network
         public static NetworkManager singleton;
         public static NetPacketProcessor Processor => NetworkManager.singleton.Socket.Processor;
 
+        public NetworkPeer Us;
         public Socket Socket { get; private set; }
         
         public NetPeer Nat, Host;
 
-        public Action<NetPeer, ConnectTowardOrder> OnConnectionOrderTreated;
+        public Action<NetPeer, NetworkPeer, HolePunchAddress> OnHolePunchSuccess;
 
         public bool lanHost;
 
@@ -26,15 +28,27 @@ namespace Network
             Socket = new Socket();
             Socket.Listen();
 
+            IPEndPoint _private = new IPEndPoint(IPAddress.Parse("127.0.0.1"), Socket.net.LocalPort);
+            IPEndPoint _public = new IPEndPoint(IPAddress.Any, Socket.net.LocalPort);
+
+            Us = new NetworkPeer("", new EndpointCouple(_public, _private));
+
             singleton = this;
-            Socket.Processor.SubscribeReusable<ConnectTowardOrder, NetPeer>(TreatConnectionOrder);
+
+            Socket.Processor.SubscribeReusable<HolePunchAddress, NetPeer>(TreatHolePunchAddress);
+            Socket.Processor.SubscribeReusable<PublicAddress>(ReceivePublicAddress);
         }
-        
-        public NetPeer Connect (PeerAddress address, string key)
+
+        public void ReceivePublicAddress (PublicAddress address)
         {
-            return Socket.TryConnect(address.Address, address.Port, key);
+            Us.Endpoints = new EndpointCouple(address.Address, Us.Endpoints.Private);
+            GD.Print(Us.Endpoints.Private + " " + Us.Endpoints.Public);
         }
-        
+
+        public NetPeer TryConnect (IPEndPoint target, string key)
+        {
+            return Socket.TryConnect(target, key);
+        }
         
         public override void _Notification(int what)
         {
@@ -47,36 +61,30 @@ namespace Network
             }
         }
 
-        public async void TreatConnectionOrder (ConnectTowardOrder order, NetPeer sender)
+        public async void TreatHolePunchAddress (HolePunchAddress target, NetPeer sender)
         {
-            // TODO check if sender are clean
+            if(!target.CheckIfLegit()) return;
+
             GD.Print("> Received connection order");
 
-            NetPeer peer = await TryConnect(order);
-            ConnectionOrderTreated(peer, order);
-        }
+            NetPeer peer = await HolePunchConnect(target);
 
-        public void ConnectionOrderTreated (NetPeer peer, ConnectTowardOrder order)
-        {
-            OnConnectionOrderTreated?.Invoke(peer, order);
-        }       
+            if(peer != null)
+                OnHolePunchSuccess?.Invoke(peer, target.Target, target);
+        }    
 
-        public async Task<NetPeer> TryConnect (ConnectTowardOrder order)
+        public async Task<NetPeer> HolePunchConnect (HolePunchAddress target)
         {
-            GD.Print(" >> Trying to connect toward " + (order.usePrivate ? order.addresses.Private : order.addresses.Public));
+            IPEndPoint targetAddress = target.UsePrivate ? target.Target.Endpoints.Private : target.Target.Endpoints.Public;
+
+            GD.Print(" >> Trying to connect toward " +  targetAddress);
             int tryCount = 0;
-    
-            PeerAddress targetAddress = new PeerAddress();
-            if(order.usePrivate)
-                targetAddress = new PeerAddress(order.addresses.Private.Address.ToString(), order.addresses.Private.Port);
-            else
-                targetAddress = new PeerAddress(order.addresses.Public.Address.ToString(), order.addresses.Public.Port);
 
             // TODO find something more elegant than this shit
             if(lanHost) 
                 await Task.Delay(20);
 
-            NetPeer con = NetworkManager.singleton.Connect(targetAddress, "");
+            NetPeer con = NetworkManager.singleton.TryConnect(targetAddress, "");
             await Task.Delay(500);
             
             while (con.ConnectionState != ConnectionState.Connected)
@@ -92,13 +100,12 @@ namespace Network
                 
                 // Retry
                 con.Disconnect();
-                con = NetworkManager.singleton.Connect(targetAddress, "");
+                con = NetworkManager.singleton.TryConnect(targetAddress, "");
                 
                 tryCount++;
             }
             
             GD.Print("  >>> Connected to peer !");
-
             return con; 
         }
     }

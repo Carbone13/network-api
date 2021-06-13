@@ -16,16 +16,13 @@ namespace Network
     /// </summary>
     public class Socket : INetEventListener
     {
-        #region Field
-        
+
         public NetPacketProcessor Processor;
-        private NetManager net; // This things allow us to connect & receive packets
+        public NetManager net;
 
-        public readonly List<NetPeer> peers = new List<NetPeer>(); // List of peers we are connected to.
-    
+        public readonly List<NetworkPeer> peers = new List<NetworkPeer>();
 
-        private bool _listening; // If we are currently listening one port (= can we receive packets ?)
-        
+        private bool _listening;
         private Thread _netThread;
         
         // These are actions linking everything from INetEvenListener, you can connect external function to them.
@@ -36,15 +33,17 @@ namespace Network
         public Action<ConnectionRequest> ConnectionRequest;
         public Action<NetPeer, NetPacketReader, DeliveryMethod> PacketReception;
         public Action<IPEndPoint, NetPacketReader, UnconnectedMessageType> PacketReceptionUnconnected;
-        public int AwaitingConnection;
 
-        #endregion
 
         public Socket ()
         {
             Processor = new NetPacketProcessor();
-            Processor.RegisterNestedType<PeerAddress>();
+
+            // Register nested types
+
+            Processor.RegisterNestedType<NetworkPeer>();
             Processor.RegisterNestedType<EndpointCouple>();
+            Processor.RegisterNestedType<Lobby>();
         }
         
         public void Listen (int port = -1)
@@ -64,14 +63,14 @@ namespace Network
             StartNetworkThread();
         }
 
-        public NetPeer TryConnect (string address, int port, string key)
+        public NetPeer TryConnect (IPEndPoint target, string key)
         {
             if (!_listening)
             {
                 Listen();
             }
 
-            NetPeer peer = net.Connect(address, port, key);
+            NetPeer peer = net.Connect(target.Address.ToString(), target.Port, key);
             return peer;
         }
 
@@ -83,7 +82,7 @@ namespace Network
 
         public void BroadcastToPeers (NetDataWriter data, DeliveryMethod method)
         {
-            foreach (NetPeer peer in peers)
+            foreach (NetPeer peer in net.ConnectedPeerList)
             {
                 if(peer.EndPoint.Address.ToString() != "90.76.187.136")
                      peer.Send(data, method);
@@ -94,11 +93,7 @@ namespace Network
         // Terminate everything !
         public void Close ()
         {
-            foreach (NetPeer peer in peers)
-            {
-                peer.Disconnect();
-            }
-            
+            net.DisconnectAll();
             net.Stop();
             _netThread.Abort();
         }
@@ -125,14 +120,11 @@ namespace Network
         #region Net Events
         public void OnPeerConnected (NetPeer peer)
         {
-            peers.Add(peer);
-            GD.Print("> New peer connected (confirmed) " + peer.EndPoint);
             PeerConnection?.Invoke(peer);
         }
 
         public void OnPeerDisconnected (NetPeer peer, DisconnectInfo disconnectInfo)
         {
-            peers.Remove(peer);
             PeerDisconnection?.Invoke(peer, disconnectInfo);
         }
 

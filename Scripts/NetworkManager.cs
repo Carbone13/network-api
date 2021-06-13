@@ -80,11 +80,14 @@ namespace Network
             GD.Print(" >> Trying to connect toward " +  targetAddress);
             int tryCount = 0;
 
-            // TODO find something more elegant than this shit
-            if(lanHost) 
-                await Task.Delay(20);
-
             NetPeer con = NetworkManager.singleton.TryConnect(targetAddress, "");
+
+            while(con == null)
+            {
+                await Task.Delay(10);
+                con = NetworkManager.singleton.TryConnect(targetAddress, "");
+            }
+
             await Task.Delay(500);
             
             while (con.ConnectionState != ConnectionState.Connected)

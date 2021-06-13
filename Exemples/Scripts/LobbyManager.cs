@@ -31,7 +31,7 @@ public class LobbyManager : Node
         GD.Print("> Joined lobby");
         
         GatherNodeReferences();
-        GetTree().Root.RemoveChild(GetTree().Root.GetNode("Menu"));
+        GetTree().Root.CallDeferred("remove_child", GetTree().Root.GetNode("Menu"));
 
         if (host) _nat = nat;
         _isHost = host;
@@ -65,7 +65,7 @@ public class LobbyManager : Node
             GD.Print("Refused from lobby/Kicked");
 
             Node menuScene = ResourceLoader.Load<PackedScene>("res://Exemples/Scenes/Menu.tscn").Instance();
-            GetTree().Root.AddChild(menuScene);
+            GetTree().Root.CallDeferred("add_child", menuScene);
             MenuManager manager = menuScene as MenuManager;
 
             GetTree().Root.RemoveChild(GetTree().Root.GetNode("Lobby"));

@@ -76,7 +76,6 @@ public class MenuManager : Node
             popup.Show();
             return;
         }
-        NetworkManager.singleton.lanHost = true;
 
         NetworkManager.singleton.Us.HighAuthority = true;
         NetworkManager.singleton.Us.Nickname = nickname.Text;
@@ -194,7 +193,7 @@ public class MenuManager : Node
         maxPlayerLabel.Text = _maxPlayer.ToString();
     }
 
-    private void GatherReferences ()
+    public void GatherReferences ()
     {
         popup = GetNode<AcceptDialog>("Popup");
 

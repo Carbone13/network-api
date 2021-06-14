@@ -11,23 +11,20 @@ using System.Linq;
 public class LobbyManager : Node
 {
     private NetPeer _nat;
-    private LineEdit _address;
-    private Button _host, _join, _leave;
+    
     private LineEdit _textInput;
     private TextEdit _chatBox;
-
     public Label _connectedCount;
+    public ItemList _connectedPlayersList;
 
     private bool _isHost;
-    private string _nickname;
 
-    public Dictionary<NetPeer, NetworkPeer> connectedClients = new Dictionary<NetPeer, NetworkPeer>();
+    public readonly Dictionary<NetPeer, NetworkPeer> connectedClients = new Dictionary<NetPeer, NetworkPeer>();
 
     private Lobby _lobby;
 
     public void Initialize (Lobby lobby, bool host, NetPeer nat, string nickname)
     {
-        NetworkManager.singleton.lanHost = host;
         GD.Print("> Joined lobby");
         
         GatherNodeReferences();
@@ -35,7 +32,6 @@ public class LobbyManager : Node
 
         if (host) _nat = nat;
         _isHost = host;
-        _nickname = nickname;
         _lobby = lobby;
 
         NetworkManager.Processor.SubscribeReusable<LobbyChatMessage>(MessagePacketReceived);
@@ -44,8 +40,11 @@ public class LobbyManager : Node
         NetworkManager.singleton.OnHolePunchSuccess += OnPeerJoin;
         NetworkManager.singleton.Socket.PeerDisconnection += OnDisconnect;
 
-         _connectedCount.Text = _lobby.ConnectedPeers.Count + "/" + _lobby.MaxAuthorizedPlayer;
+        _connectedPlayersList.Clear();
+        _connectedPlayersList.AddItem(NetworkManager.singleton.Us.Nickname + " (You)", null, false);
+         UpdatePlayerCount();
     }
+    
 
     public void OnLobbyUpdate (RegisterAndUpdateLobbyState updatedLobby, NetPeer sender)
     {
@@ -54,6 +53,11 @@ public class LobbyManager : Node
 
         _lobby = updatedLobby.Lobby;
 
+        UpdatePlayerCount();
+    }
+
+    private void UpdatePlayerCount ()
+    {
         _connectedCount.Text = _lobby.ConnectedPeers.Count + "/" + _lobby.MaxAuthorizedPlayer;
     }
 
@@ -69,10 +73,28 @@ public class LobbyManager : Node
             MenuManager manager = menuScene as MenuManager;
 
             GetTree().Root.RemoveChild(GetTree().Root.GetNode("Lobby"));
-
+            manager.GatherReferences();
             manager.popup.DialogText = "Host refused/kicked us !";
             manager.popup.Show();
         }
+
+        for (int i = 0; i < connectedClients.Keys.Count; i++)
+        {
+            if (connectedClients.Keys.ToArray()[i] == peer)
+            {
+                _connectedPlayersList.RemoveItem(i);
+                _lobby.ConnectedPeers.Remove(connectedClients[peer]);
+                connectedClients.Remove(peer);
+                UpdatePlayerCount();
+                
+                RegisterAndUpdateLobbyState update = new RegisterAndUpdateLobbyState(NetworkManager.singleton.Us, _lobby);
+                update.Send(_nat, DeliveryMethod.ReliableOrdered);
+
+                foreach(NetPeer _peer in connectedClients.Keys)
+                    update.Send(_peer, DeliveryMethod.ReliableOrdered);
+            }
+        }
+
     }
 
     // Network/Lobby management
@@ -89,7 +111,12 @@ public class LobbyManager : Node
             return;
         }
 
-
+        Color col = _chatBox.GetColor("font_color");
+        
+        _chatBox.AddColorOverride("font_color", Colors.Aqua);
+        _chatBox.Text += "New player joined: " + peerInfo.Nickname + "\n";
+        _connectedPlayersList.AddItem(peerInfo.Nickname);
+        
         connectedClients.Add(peer, peerInfo);
 
         HolePunchAddress _connectToNewPeer = new HolePunchAddress(NetworkManager.singleton.Us, connectedClients[peer], false);
@@ -134,13 +161,12 @@ public class LobbyManager : Node
             {
                 if (_textInput.Text != "")
                 {
-                    GD.Print("Sending message to every peer...");
+                    GD.Print("> Sending a Message");
                     
                     NetDataWriter writer = new NetDataWriter();
                     
                     LobbyChatMessage lm = new LobbyChatMessage(NetworkManager.singleton.Us, _textInput.Text);
-                    
-                    writer.Reset();
+
                     NetworkManager.Processor.Write(writer, lm);
                     NetworkManager.singleton.Socket.BroadcastToPeers(writer, DeliveryMethod.ReliableOrdered);
 
@@ -149,6 +175,19 @@ public class LobbyManager : Node
                 }
             }
         }
+    }
+
+    private int _selectedPlayer;
+    public void OnPlayerSelected (int value)
+    {
+        _selectedPlayer = value;
+    }
+
+    public void OnKickPressed ()
+    {
+        GD.Print(_selectedPlayer);
+        GD.Print(connectedClients.Keys.ToArray().Length);
+        connectedClients.Keys.ToArray()[_selectedPlayer - 1].Disconnect();
     }
     
     public void MessagePacketReceived (LobbyChatMessage message)
@@ -159,16 +198,23 @@ public class LobbyManager : Node
 
     private void AddLine (LobbyChatMessage message)
     {
-        _chatBox.Text += message.Sender.Nickname + ": " + message.Message + "\n";
+        if (message.Sender.HighAuthority)
+        {
+            _chatBox.Text += message.Sender.Nickname + " (Host) : " + message.Message + "\n";
+        }
+        else
+        {
+            _chatBox.Text += message.Sender.Nickname + ": " + message.Message + "\n";
+        }
     }
     
     private void GatherNodeReferences ()
     {
-        _leave = GetNode<Button>("Leave Button");
-        
         _textInput = GetNode<LineEdit>("Panel/Input");
         _chatBox = GetNode<TextEdit>("Panel/Chatbox");
 
         _connectedCount = GetNode<Label>("Connected/Label");
+
+        _connectedPlayersList = GetNode<ItemList>("Connected/Players");
     }
 }

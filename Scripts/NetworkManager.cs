@@ -2,11 +2,9 @@
 using LiteNetLib;
 using LiteNetLib.Utils;
 using Network.Packet;
-using System.Collections.Generic;
 using System.Threading.Tasks;
 using System.Net;
 using System.Net.Sockets;
-using System.Net.NetworkInformation;
 using System;
 
 namespace Network
@@ -14,23 +12,20 @@ namespace Network
     public class NetworkManager : Node
     {
         public static NetworkManager singleton;
-        public static NetPacketProcessor Processor => NetworkManager.singleton.Socket.Processor;
+        public static NetPacketProcessor Processor => singleton.Socket.Processor;
 
         public NetworkPeer Us;
         public Socket Socket { get; private set; }
-        
-        public NetPeer Nat, Host;
 
         public Action<NetPeer, NetworkPeer, HolePunchAddress> OnHolePunchSuccess;
 
-        public bool lanHost;
 
         public override void _Ready ()
         {
             Socket = new Socket();
             Socket.Listen();
 
-            IPAddress localIP = IPAddress.Any;
+            IPAddress localIP;
             using (System.Net.Sockets.Socket socket = new System.Net.Sockets.Socket(AddressFamily.InterNetwork, SocketType.Dgram, 0))
             {
                 socket.Connect("8.8.8.8", 65530);
@@ -51,8 +46,7 @@ namespace Network
 
         public void ReceivePublicAddress (PublicAddress address)
         {
-            Us.Endpoints = new EndpointCouple(address.Address, Us.Endpoints.Private);
-            GD.Print(Us.Endpoints.Private + " " + Us.Endpoints.Public);
+            UpdateUs(Us.Nickname, new EndpointCouple(address.Address, Us.Endpoints.Private), Us.HighAuthority);
         }
 
         public NetPeer TryConnect (IPEndPoint target, string key)
@@ -83,7 +77,8 @@ namespace Network
                 OnHolePunchSuccess?.Invoke(peer, target.Target, target);
         }    
 
-        public async Task<NetPeer> HolePunchConnect (HolePunchAddress target)
+        // Connect toward an address using Hole Punch Through
+        public static async Task<NetPeer> HolePunchConnect (HolePunchAddress target)
         {
             IPEndPoint targetAddress = target.UsePrivate ? target.Target.Endpoints.Private : target.Target.Endpoints.Public;
 
@@ -94,7 +89,7 @@ namespace Network
 
             while(con == null)
             {
-                await Task.Delay(10);
+                await Task.Delay(100);
                 con = NetworkManager.singleton.TryConnect(targetAddress, "");
             }
 
@@ -120,6 +115,13 @@ namespace Network
             
             GD.Print("  >>> Connected to peer !");
             return con; 
+        }
+
+        public void UpdateUs (string _nickname, EndpointCouple _endpoints, bool _authority)
+        {
+            Us.Nickname = _nickname;
+            Us.Endpoints = _endpoints;
+            Us.HighAuthority = _authority;
         }
     }
 }

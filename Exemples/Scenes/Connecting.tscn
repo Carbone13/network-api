@@ -1,13 +1,45 @@
-[gd_scene load_steps=3 format=2]
+[gd_scene load_steps=7 format=2]
 
 [ext_resource path="res://Exemples/Assets/Roboto-Regular.ttf" type="DynamicFontData" id=1]
+[ext_resource path="res://Exemples/Assets/load.png" type="Texture" id=2]
+[ext_resource path="res://Exemples/Scripts/ConnectingScene.cs" type="Script" id=3]
 
 [sub_resource type="DynamicFont" id=1]
 size = 37
 use_filter = true
 font_data = ExtResource( 1 )
 
+[sub_resource type="DynamicFont" id=2]
+size = 17
+use_filter = true
+font_data = ExtResource( 1 )
+
+[sub_resource type="Animation" id=3]
+resource_name = "Load"
+length = 1.1
+loop = true
+tracks/0/type = "value"
+tracks/0/path = NodePath(".:frame")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/keys = {
+"times": PoolRealArray( 0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1, 1.1 ),
+"transitions": PoolRealArray( 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 ),
+"update": 0,
+"values": [ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 ]
+}
+
 [node name="Connecting" type="Control"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+script = ExtResource( 3 )
+__meta__ = {
+"_edit_use_anchors_": false
+}
+
+[node name="Panel" type="Panel" parent="."]
 anchor_right = 1.0
 anchor_bottom = 1.0
 __meta__ = {
@@ -19,14 +51,108 @@ anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-margin_left = -107.5
-margin_top = -25.5
-margin_right = 107.5
-margin_bottom = 25.5
+margin_left = -131.5
+margin_top = -124.5
+margin_right = 131.5
+margin_bottom = -73.5
 custom_fonts/font = SubResource( 1 )
-text = "Connecting..."
+text = "Joining Lobby..."
 align = 1
 valign = 1
+__meta__ = {
+"_edit_use_anchors_": false
+}
+
+[node name="C -> Host" type="Label" parent="."]
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+margin_left = -88.0
+margin_top = -36.0
+margin_right = 72.0
+margin_bottom = -12.0
+custom_fonts/font = SubResource( 2 )
+text = "Connecting to Host"
+align = 2
+valign = 1
+__meta__ = {
+"_edit_use_anchors_": false
+}
+
+[node name="Load" type="Sprite" parent="C -> Host"]
+position = Vector2( 175.43, 10.8723 )
+scale = Vector2( 0.15, 0.15 )
+texture = ExtResource( 2 )
+hframes = 12
+frame = 11
+
+[node name="AnimationPlayer" type="AnimationPlayer" parent="C -> Host/Load"]
+autoplay = "Load"
+playback_speed = 1.2
+anims/Load = SubResource( 3 )
+
+[node name="Host Accept" type="Label" parent="."]
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+margin_left = -112.0
+margin_top = -12.0
+margin_right = 72.0
+margin_bottom = 12.0
+custom_fonts/font = SubResource( 2 )
+text = "Waiting for Host accept"
+align = 2
+valign = 1
+__meta__ = {
+"_edit_use_anchors_": false
+}
+
+[node name="C -> Client" type="Label" parent="."]
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+margin_left = -96.0
+margin_top = 12.0
+margin_right = 72.0
+margin_bottom = 36.0
+custom_fonts/font = SubResource( 2 )
+text = "Connecting to Clients"
+align = 2
+valign = 1
+__meta__ = {
+"_edit_use_anchors_": false
+}
+
+[node name="Additional" type="Label" parent="."]
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+margin_left = -112.0
+margin_top = 36.0
+margin_right = 72.0
+margin_bottom = 60.0
+custom_fonts/font = SubResource( 2 )
+text = "Getting Additional Infos"
+align = 2
+valign = 1
+__meta__ = {
+"_edit_use_anchors_": false
+}
+
+[node name="Popup" type="AcceptDialog" parent="."]
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+margin_left = -47.5
+margin_top = -29.0
+margin_right = 47.5
+margin_bottom = 29.0
+window_title = "Alerte !"
 __meta__ = {
 "_edit_use_anchors_": false
 }

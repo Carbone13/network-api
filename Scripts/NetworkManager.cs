@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using System.Net;
 using System.Net.Sockets;
 using System;
+using Network.HolePunching;
 
 namespace Network
 {
@@ -16,34 +17,26 @@ namespace Network
 
         public NetworkPeer Us;
         public Socket Socket { get; private set; }
-
-        public Action<NetPeer, NetworkPeer, HolePunchAddress> OnHolePunchSuccess;
-
+        public NetPeer LobbyEr { get; private set; }
+        public HolePuncher HolePuncher { get; private set; }
 
         public override void _Ready ()
         {
+            singleton = this;
+            
             Socket = new Socket();
             Socket.Listen();
-
-            IPAddress localIP;
-            using (System.Net.Sockets.Socket socket = new System.Net.Sockets.Socket(AddressFamily.InterNetwork, SocketType.Dgram, 0))
-            {
-                socket.Connect("8.8.8.8", 65530);
-                IPEndPoint endPoint = socket.LocalEndPoint as IPEndPoint;
-                localIP = endPoint.Address;
-            }
-
-            IPEndPoint _private = new IPEndPoint(localIP, Socket.net.LocalPort);
+            
+            IPEndPoint _private = new IPEndPoint(GetLocalIP(), Socket.net.LocalPort);
             IPEndPoint _public = new IPEndPoint(IPAddress.Any, Socket.net.LocalPort);
+            Socket.Processor.SubscribeReusable<PublicAddress>(ReceivePublicAddress);
 
             Us = new NetworkPeer("", new EndpointCouple(_public, _private));
-
-            singleton = this;
-
-            Socket.Processor.SubscribeReusable<HolePunchAddress, NetPeer>(TreatHolePunchAddress);
-            Socket.Processor.SubscribeReusable<PublicAddress>(ReceivePublicAddress);
+            LobbyEr = TryConnect(new IPEndPoint(IPAddress.Parse("90.76.187.136"), 3456), "");
+            HolePuncher = new HolePuncher();
         }
 
+        // Contains your public address, sent by the Lobby-Er
         public void ReceivePublicAddress (PublicAddress address)
         {
             UpdateUs(Us.Nickname, new EndpointCouple(address.Address, Us.Endpoints.Private), Us.HighAuthority);
@@ -65,63 +58,21 @@ namespace Network
             }
         }
 
-        public async void TreatHolePunchAddress (HolePunchAddress target, NetPeer sender)
-        {
-            if(!target.CheckIfLegit()) return;
-
-            GD.Print("> Received connection order");
-
-            NetPeer peer = await HolePunchConnect(target);
-
-            if(peer != null)
-                OnHolePunchSuccess?.Invoke(peer, target.Target, target);
-        }    
-
-        // Connect toward an address using Hole Punch Through
-        public static async Task<NetPeer> HolePunchConnect (HolePunchAddress target)
-        {
-            IPEndPoint targetAddress = target.UsePrivate ? target.Target.Endpoints.Private : target.Target.Endpoints.Public;
-
-            GD.Print(" >> Trying to connect toward " +  targetAddress);
-            int tryCount = 0;
-
-            NetPeer con = NetworkManager.singleton.TryConnect(targetAddress, "");
-
-            while(con == null)
-            {
-                await Task.Delay(100);
-                con = NetworkManager.singleton.TryConnect(targetAddress, "");
-            }
-
-            await Task.Delay(500);
-            
-            while (con.ConnectionState != ConnectionState.Connected)
-            {
-                if (tryCount > 3)
-                {
-                    GD.Print("  >>> Time out !");
-                    return null;
-                }
-
-                GD.Print(" >> Failed to connect, retrying...");
-                await Task.Delay(500);
-                
-                // Retry
-                con.Disconnect();
-                con = NetworkManager.singleton.TryConnect(targetAddress, "");
-                
-                tryCount++;
-            }
-            
-            GD.Print("  >>> Connected to peer !");
-            return con; 
-        }
-
         public void UpdateUs (string _nickname, EndpointCouple _endpoints, bool _authority)
         {
             Us.Nickname = _nickname;
             Us.Endpoints = _endpoints;
             Us.HighAuthority = _authority;
+        }
+
+        private IPAddress GetLocalIP ()
+        {
+            using (System.Net.Sockets.Socket socket = new System.Net.Sockets.Socket(AddressFamily.InterNetwork, SocketType.Dgram, 0))
+            {
+                socket.Connect("8.8.8.8", 65530);
+                IPEndPoint endPoint = socket.LocalEndPoint as IPEndPoint;
+                return endPoint.Address;
+            }
         }
     }
 }

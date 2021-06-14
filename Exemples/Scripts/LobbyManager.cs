@@ -10,34 +10,30 @@ using System.Linq;
 
 public class LobbyManager : Node
 {
-    private NetPeer _nat;
-    
     private LineEdit _textInput;
     private TextEdit _chatBox;
     public Label _connectedCount;
     public ItemList _connectedPlayersList;
-
-    private bool _isHost;
-
+    
     public readonly Dictionary<NetPeer, NetworkPeer> connectedClients = new Dictionary<NetPeer, NetworkPeer>();
-
+    
+    private bool _isHost;
     private Lobby _lobby;
 
-    public void Initialize (Lobby lobby, bool host, NetPeer nat, string nickname)
+    public void Initialize (Lobby lobby, bool host)
     {
         GD.Print("> Joined lobby");
         
         GatherNodeReferences();
         GetTree().Root.CallDeferred("remove_child", GetTree().Root.GetNode("Menu"));
 
-        if (host) _nat = nat;
         _isHost = host;
         _lobby = lobby;
 
         NetworkManager.Processor.SubscribeReusable<LobbyChatMessage>(MessagePacketReceived);
         NetworkManager.Processor.SubscribeReusable<RegisterAndUpdateLobbyState, NetPeer>(OnLobbyUpdate);
 
-        NetworkManager.singleton.OnHolePunchSuccess += OnPeerJoin;
+        NetworkManager.singleton.HolePuncher.OnConnectSuccessful += OnPeerJoin;
         NetworkManager.singleton.Socket.PeerDisconnection += OnDisconnect;
 
         _connectedPlayersList.Clear();
@@ -88,7 +84,7 @@ public class LobbyManager : Node
                 UpdatePlayerCount();
                 
                 RegisterAndUpdateLobbyState update = new RegisterAndUpdateLobbyState(NetworkManager.singleton.Us, _lobby);
-                update.Send(_nat, DeliveryMethod.ReliableOrdered);
+                update.Send(NetworkManager.singleton.LobbyEr, DeliveryMethod.ReliableOrdered);
 
                 foreach(NetPeer _peer in connectedClients.Keys)
                     update.Send(_peer, DeliveryMethod.ReliableOrdered);
@@ -98,7 +94,7 @@ public class LobbyManager : Node
     }
 
     // Network/Lobby management
-    public void OnPeerJoin (NetPeer peer, NetworkPeer peerInfo, HolePunchAddress initialOrder)
+    public void OnPeerJoin (NetPeer peer, NetworkPeer peerInfo)
     {
         if(peer == null) return;
         if(!_isHost) return;
@@ -110,40 +106,27 @@ public class LobbyManager : Node
             GD.Print("New peer joined but we are full");
             return;
         }
-
+        GD.Print("> New peer joined the lobby");
         Color col = _chatBox.GetColor("font_color");
         
         _chatBox.AddColorOverride("font_color", Colors.Aqua);
         _chatBox.Text += "New player joined: " + peerInfo.Nickname + "\n";
         _connectedPlayersList.AddItem(peerInfo.Nickname);
         
-        connectedClients.Add(peer, peerInfo);
+        GD.Print(" >> Setting up RendezVous with already connected peers");
 
-        HolePunchAddress _connectToNewPeer = new HolePunchAddress(NetworkManager.singleton.Us, connectedClients[peer], false);
-
-        foreach(NetPeer alreadyConnected in connectedClients.Keys)
+        foreach(NetworkPeer alreadyConnected in connectedClients.Values)
         {
-            if(alreadyConnected != peer)
-            {
-                // Trade addresses !
-                HolePunchAddress _connectToPresentPeer = new HolePunchAddress(NetworkManager.singleton.Us, connectedClients[alreadyConnected], false);
-
-                bool usePrivate = 
-                    _connectToNewPeer.Target.Endpoints.Public.Address.ToString() == _connectToPresentPeer.Target.Endpoints.Public.Address.ToString();
-                _connectToNewPeer.UsePrivate = usePrivate;
-                _connectToPresentPeer.UsePrivate = usePrivate;
-
-
-                alreadyConnected.Send(NetworkManager.Processor.Write(_connectToNewPeer), DeliveryMethod.ReliableOrdered);
-                peer.Send(NetworkManager.Processor.Write(_connectToPresentPeer), DeliveryMethod.ReliableOrdered);
-            }
+            NetworkManager.singleton.HolePuncher.SetupRendezVous(peerInfo, alreadyConnected);
         }
+        
+        connectedClients.Add(peer, peerInfo);
 
         // Update our lobby statut
         _lobby.ConnectedPeers.Add(connectedClients[peer]);
         
         RegisterAndUpdateLobbyState update = new RegisterAndUpdateLobbyState(NetworkManager.singleton.Us, _lobby);
-        update.Send(_nat, DeliveryMethod.ReliableOrdered);
+        update.Send(NetworkManager.singleton.LobbyEr, DeliveryMethod.ReliableOrdered);
 
         foreach(NetPeer _peer in connectedClients.Keys)
             update.Send(_peer, DeliveryMethod.ReliableOrdered);

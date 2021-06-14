@@ -45,7 +45,18 @@ namespace Network
             Processor.RegisterNestedType<EndpointCouple>();
             Processor.RegisterNestedType<Lobby>();
         }
-        
+
+        public NetPeer GetPeer (NetworkPeer peer)
+        {
+            foreach (NetPeer _peer in net.ConnectedPeerList)
+            {
+                if (peer.Endpoints.CorrespondTo(_peer.EndPoint))
+                    return _peer;
+            }
+
+            return null;
+        }
+
         public void Listen (int port = -1)
         {
             if (_listening) return;

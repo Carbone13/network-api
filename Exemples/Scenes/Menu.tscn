@@ -34,10 +34,10 @@ __meta__ = {
 }
 
 [node name="LineEdit" type="LineEdit" parent="Nickname"]
-margin_left = 124.0
-margin_top = 4.0
-margin_right = 264.0
-margin_bottom = 28.0
+margin_left = 121.497
+margin_top = 5.0
+margin_right = 261.497
+margin_bottom = 29.0
 text = "gdg"
 
 [node name="Hosting" type="Panel" parent="."]
@@ -45,9 +45,10 @@ anchor_top = 0.5
 anchor_bottom = 0.5
 margin_left = 30.0
 margin_top = -82.0
-margin_right = 235.0
+margin_right = 240.0
 margin_bottom = 84.0
 __meta__ = {
+"_edit_group_": true,
 "_edit_use_anchors_": false
 }
 
@@ -105,9 +106,9 @@ __meta__ = {
 }
 
 [node name="Name input" type="LineEdit" parent="Hosting"]
-margin_left = 87.0
+margin_left = 89.2981
 margin_top = 39.0
-margin_right = 196.0
+margin_right = 198.298
 margin_bottom = 63.0
 text = "lm"
 __meta__ = {
@@ -115,9 +116,9 @@ __meta__ = {
 }
 
 [node name="Password input" type="LineEdit" parent="Hosting"]
-margin_left = 87.0
+margin_left = 89.2981
 margin_top = 67.0332
-margin_right = 196.0
+margin_right = 198.298
 margin_bottom = 91.0332
 secret = true
 __meta__ = {
@@ -125,10 +126,10 @@ __meta__ = {
 }
 
 [node name="Max Player Slider" type="HSlider" parent="Hosting"]
-margin_left = 87.0
-margin_top = 93.0
-margin_right = 178.0
-margin_bottom = 111.0
+margin_left = 89.2981
+margin_top = 93.0332
+margin_right = 180.298
+margin_bottom = 111.033
 min_value = 1.0
 max_value = 3.0
 value = 3.0
@@ -139,10 +140,10 @@ __meta__ = {
 }
 
 [node name="Max Player Count" type="Label" parent="Hosting"]
-margin_left = 183.403
-margin_top = 96.0
-margin_right = 196.403
-margin_bottom = 110.0
+margin_left = 184.287
+margin_top = 95.8232
+margin_right = 197.287
+margin_bottom = 109.823
 text = "3"
 align = 2
 __meta__ = {
@@ -214,9 +215,9 @@ __meta__ = {
 }
 
 [node name="Popup" type="AcceptDialog" parent="."]
-margin_left = 269.928
+margin_left = 250.0
 margin_top = 94.0
-margin_right = 365.928
+margin_right = 366.0
 margin_bottom = 152.0
 popup_exclusive = true
 window_title = "Error /!\\"

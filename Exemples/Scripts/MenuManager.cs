@@ -74,11 +74,14 @@ public class MenuManager : Node
 
             RegisterAndUpdateLobbyState registering = new RegisterAndUpdateLobbyState(NetworkManager.singleton.Us, hosted);
             registering.Send(NetworkManager.singleton.LobbyEr, DeliveryMethod.ReliableOrdered);
-
+            
+            GD.Print("  >>> Changing scene");
+            
             Node lobbyScene = ResourceLoader.Load<PackedScene>("res://Exemples/Scenes/Lobby.tscn").Instance();
             GetTree().Root.AddChild(lobbyScene);
             LobbyManager manager = lobbyScene as LobbyManager;
 
+            GD.Print("  >>> Initializing lobby as Host");
             manager.Initialize(hosted, true);
         }
     }
@@ -98,6 +101,8 @@ public class MenuManager : Node
                 GD.PrintErr(" >> ERROR: no lobby selected");
                 return;
             }
+
+            NetworkManager.singleton.Us.Nickname = nickname.Text;
             
             Node lobbyScene = ResourceLoader.Load<PackedScene>("res://Exemples/Scenes/Connecting.tscn").Instance();
             GetTree().Root.AddChild(lobbyScene);
@@ -116,6 +121,9 @@ public class MenuManager : Node
     {
         QueryLobbyList query = new QueryLobbyList(NetworkManager.singleton.Us);
         query.Send(NetworkManager.singleton.LobbyEr, DeliveryMethod.ReliableOrdered);
+        
+        lobbies.Clear();
+        lobbyList.Clear();
     }
     
     // When we receive the list of available lobbies from Lobby-Er

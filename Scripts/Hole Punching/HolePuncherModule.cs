@@ -1,17 +1,15 @@
 ﻿using Godot;
 using LiteNetLib;
-using Network.Packet;
 using System.Threading.Tasks;
 using System.Net;
 using System;
-using Network.HolePunching.Packet;
 
 namespace Network.HolePunching
 {
-    public class HolePuncher
+    public class HolePuncherModule
     {
         public Action<NetPeer, NetworkPeer> OnConnectSuccessful;
-        public HolePuncher ()
+        public HolePuncherModule ()
         {
             NetworkManager.Processor.SubscribeReusable<RendezVousInvitation>(OnInvitationReceiption);
         }
@@ -43,9 +41,10 @@ namespace Network.HolePunching
         private async void OnInvitationReceiption (RendezVousInvitation _invitation)
         {
             GD.Print("> Received Rendez-Vous invitation");
-            await ConnectToward(_invitation.GetCorrectEndPoint());
+            NetPeer peer = await ConnectToward(_invitation.GetCorrectEndPoint());
             
-            OnConnectSuccessful?.Invoke(NetworkManager.singleton.Socket.GetPeer(_invitation.Target), _invitation.Target);
+            if(peer != null)
+                OnConnectSuccessful?.Invoke(peer, _invitation.Target);
         }
         
         /// <summary>
@@ -55,6 +54,8 @@ namespace Network.HolePunching
         /// <returns></returns>
         private async Task<NetPeer> ConnectToward (IPEndPoint target)
         {
+            //if (NetworkManager.singleton.Us.HighAuthority) return null;
+            
             int connectionAttempts = 0;
             GD.Print(" >> Connecting toward " + target + " using NAT Hole Punching");
 
@@ -63,98 +64,28 @@ namespace Network.HolePunching
             // If peer is null, wait one frame and retry to connect
             while (peer == null)
             {
-                await Task.Delay(17);
+                await Task.Delay(10);
                 peer = NetworkManager.singleton.TryConnect(target, "");
             }
 
-            await Task.Delay(400);
+            await Task.Delay(500);
             while (peer.ConnectionState != ConnectionState.Connected)
             {
                 if (connectionAttempts > 3)
                 {
                     GD.PrintErr("  >>> Could not connect after 4 attempts");
+                    return null;
                 }
+                await Task.Delay(500);
                 
+                peer.Disconnect();
                 peer = NetworkManager.singleton.TryConnect(target, "");
+                
                 connectionAttempts++;
-
-                await Task.Delay(400);
             }
             
             GD.Print("  >>> Connection successful");
             return peer;
         }
-    }
-}
-
-// Hole punching packets
-namespace Network.HolePunching.Packet
-{
-    /// <summary>
-    /// Ask the Lobby-Er to setup a Rendez-Vous between you and the
-    /// specified target
-    /// </summary>
-    public class AskRendezVous : IPacket
-    {
-        public NetworkPeer Sender { get; set; }
-        
-        public NetworkPeer You { get; set; }
-        public NetworkPeer Target { get; set; }
-        
-
-        public AskRendezVous (NetworkPeer _sender, NetworkPeer _you, NetworkPeer _target)
-        {
-            Sender = _sender;
-            You = _you;
-            Target = _target;
-        }
-        
-        public bool CheckIfLegit ()
-            => true;
-
-        public void Send (NetPeer target, DeliveryMethod method)
-        {
-            throw new NotImplementedException();
-        }
-        
-        public AskRendezVous () {}
-    }
-
-    /// <summary>
-    /// Rendez-Vous invitation sent by the Lobby-Er
-    /// Both the original asker and the target receive an invitation
-    /// </summary>
-    public class RendezVousInvitation : IPacket
-    {
-        public NetworkPeer Sender { get; set; }
-        
-        public NetworkPeer Target { get; set; }
-
-        public IPEndPoint GetCorrectEndPoint ()
-        {
-            // If we have the same Private address (= we are on the same lan)
-            if (Target.Endpoints.Private.Address.ToString() == NetworkManager.singleton.Us.Endpoints.Private.Address.ToString())
-            {
-                // Use the private Address
-                return Target.Endpoints.Private;
-            }
-            
-            // else, use the public one
-            return Target.Endpoints.Public;
-        }
-
-        public RendezVousInvitation (NetworkPeer _sender, NetworkPeer _target)
-        {
-            Sender = _sender;
-            Target = _target;
-        }
-        
-        public bool CheckIfLegit ()
-            => Sender.HighAuthority;
-
-        public void Send (NetPeer target, DeliveryMethod method)
-            => target.Send(NetworkManager.Processor.Write(this), method);
-        
-        public RendezVousInvitation () {}
     }
 }

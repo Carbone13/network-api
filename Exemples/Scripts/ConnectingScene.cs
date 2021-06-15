@@ -3,11 +3,12 @@ using System.Threading.Tasks;
 using LiteNetLib;
 using Network;
 using Network.Packet;
-using Network.HolePunching;
-using Network.HolePunching.Packet;
 
 public class ConnectingScene : Node
 {
+    // Status UI Nodes
+    public Node ConnecToHost, WaitForHostAccept, ConnectToClient, AdditionalInfo;
+
     public Lobby TargetLobby;
     
     private NetPeer LobbyHost;
@@ -18,7 +19,9 @@ public class ConnectingScene : Node
     public override void _Ready ()
     {
         GD.Print();
-
+        GatherReferences();
+        GetTree().Root.GetNode("Menu").QueueFree();
+        //GetTree().Root.CallDeferred("remove_child", GetTree().Root.GetNode("Menu"));
         _ready = true;
     }
 
@@ -26,8 +29,6 @@ public class ConnectingScene : Node
     {
         while (!_ready)
             await Task.Delay(16);
-        
-        GetTree().Root.RemoveChild(GetTree().Root.GetNode("Lobby"));
 
         TargetLobby = target;
 
@@ -40,6 +41,8 @@ public class ConnectingScene : Node
         // Subscribe to "Connect" & "Disconnect" event
         NetworkManager.singleton.Socket.PeerConnection += OnConnect;
         NetworkManager.singleton.Socket.PeerDisconnection += OnDisconnect;
+        
+        NetworkManager.Processor.SubscribeReusable<RegisterAndUpdateLobbyState>(OnAdditionalInformationsReceived);
     }
 
     private void OnConnect (NetPeer peer)
@@ -66,20 +69,36 @@ public class ConnectingScene : Node
         if (TargetLobby.Host.Endpoints.CorrespondTo(peer.EndPoint))
         {
             LobbyHost = peer;
-            WhenConnectedToHost();
+            //WhenConnectedToHost();
         }
     }
 
     public void WhenConnectedToHost ()
     {
-        // Once Connected to Host, ask for others peers
-        AskForOtherClients ask = new AskForOtherClients(NetworkManager.singleton.Us);
-        ask.Send(LobbyHost, DeliveryMethod.ReliableOrdered);
+        GD.Print("> Connecting to Host, asking for others peers");
+        ConnecToHost.GetNode<Node2D>("Checkmark").Show();
+        ConnecToHost.GetNode<Node2D>("Load").Hide();
+        WaitForHostAccept.GetNode<Node2D>("Load").Show();
+        
+        OnHostAcceptationReceived();
+        if (TargetLobby.ConnectedPeers.Count > 1)
+        {
+            GD.Print(" >> Some clients were already here, asking host their address");
+        }
+        else
+        {
+            GD.Print(" >> Host is alone");
+            WhenConnectedToEveryClient();
+        }
     }
 
     public void OnHostAcceptationReceived ()
     {
-        
+        WaitForHostAccept.GetNode<Node2D>("Checkmark").Show();
+        WaitForHostAccept.GetNode<Node2D>("Load").Hide();
+        ConnectToClient.GetNode<Node2D>("Load").Show();
+            
+        GD.Print(" >> Host accepted us");
     }
 
     public void WhenConnectedToOneClient ()
@@ -95,5 +114,40 @@ public class ConnectingScene : Node
     public void WhenConnectedToEveryClient ()
     {
         GD.Print("  >>> Connected to every clients, connection successfull !");
+        ConnectToClient.GetNode<Node2D>("Checkmark").Show();
+        ConnectToClient.GetNode<Node2D>("Load").Hide();
+        AdditionalInfo.GetNode<Node2D>("Load").Show();
+    }
+
+    public async void OnAdditionalInformationsReceived (RegisterAndUpdateLobbyState infos)
+    {
+        GD.Print("  >>> Received last informations, ready to load lobby scene !");
+        TargetLobby = infos.Lobby;
+        
+        AdditionalInfo.GetNode<Node2D>("Checkmark").Show();
+        AdditionalInfo.GetNode<Node2D>("Load").Hide();
+        
+        GD.Print("  >>> Changing scene");
+            
+        Node lobbyScene = ResourceLoader.Load<PackedScene>("res://Exemples/Scenes/Lobby.tscn").Instance();
+        GetTree().Root.CallDeferred("add_child", lobbyScene);
+
+        while (GetTree().Root.GetNodeOrNull("Lobby") == null)
+        {
+            await Task.Delay(17);
+        }
+
+        LobbyManager manager = lobbyScene as LobbyManager;
+
+        GD.Print("  >>> Initializing lobby as Client");
+        manager.Initialize(TargetLobby, false);
+    }
+
+    private void GatherReferences ()
+    {
+        ConnecToHost = GetNode("C -> Host");
+        WaitForHostAccept = GetNode("Host Accept");
+        ConnectToClient = GetNode("C -> Client");
+        AdditionalInfo = GetNode("Additional");
     }
 }

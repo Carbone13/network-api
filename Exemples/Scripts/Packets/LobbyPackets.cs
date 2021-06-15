@@ -1,18 +1,9 @@
-﻿using System.Net;
-using LiteNetLib;
+﻿using System.Collections.Generic;
 using LiteNetLib.Utils;
-using System.Collections.Generic;
+using LiteNetLib;
 
-// NOTE: Lobby-Er refers to https://github.com/Carbone13/lobby-er
-namespace Network.Packet
+namespace Network
 {
-    public interface IPacket
-    {
-        NetworkPeer Sender { get; set; }
-
-        bool CheckIfLegit ();
-        void Send(NetPeer target, DeliveryMethod method);
-    }
     public struct Lobby : INetSerializable
     {
         public NetworkPeer Host { get; set; }
@@ -59,28 +50,10 @@ namespace Network.Packet
             }
         }
     }
-    
-    public class PublicAddress : IPacket
-    {
-         public NetworkPeer Sender { get; set; }
+}
 
-         public IPEndPoint Address { get; set; }
-
-         public PublicAddress (NetworkPeer _sender, IPEndPoint _address)
-         {
-             Sender = _sender;
-             Address = _address;
-         }
-
-         public bool CheckIfLegit () 
-            => Sender.HighAuthority;
-
-        public void Send (NetPeer target, DeliveryMethod method)
-            => target.Send(NetworkManager.Processor.Write(this), method);
-
-        public PublicAddress () {}
-    }
-
+namespace Network.Packet
+{
     // Ask Lobby-Er for the list of available lobbies
     public class QueryLobbyList : IPacket
     {
@@ -146,24 +119,6 @@ namespace Network.Packet
 
         // Empty constructor needed to serialize with PacketProcessor
         public RegisterAndUpdateLobbyState () {}
-    }
-
-    public class AskForOtherClients : IPacket
-    {
-        public NetworkPeer Sender { get; set; }
-
-        public AskForOtherClients (NetworkPeer _sender)
-        {
-            Sender = _sender;
-        }
-        public bool CheckIfLegit () 
-            => true;
-
-        public void Send (NetPeer target, DeliveryMethod method) 
-            => target.Send(NetworkManager.Processor.Write(this), method);
-
-        // Empty constructor needed to serialize with PacketProcessor
-        public AskForOtherClients () {}
     }
 
     public class LobbyChatMessage : IPacket

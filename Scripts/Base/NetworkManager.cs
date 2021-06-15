@@ -18,7 +18,7 @@ namespace Network
         public NetworkPeer Us;
         public Socket Socket { get; private set; }
         public NetPeer LobbyEr { get; private set; }
-        public HolePuncher HolePuncher { get; private set; }
+        public HolePuncherModule HolePuncher { get; private set; }
 
         public override void _Ready ()
         {
@@ -33,7 +33,7 @@ namespace Network
 
             Us = new NetworkPeer("", new EndpointCouple(_public, _private));
             LobbyEr = TryConnect(new IPEndPoint(IPAddress.Parse("90.76.187.136"), 3456), "");
-            HolePuncher = new HolePuncher();
+            HolePuncher = new HolePuncherModule();
         }
 
         // Contains your public address, sent by the Lobby-Er
@@ -54,7 +54,7 @@ namespace Network
             {
                 // Do a clean disconnect before
                 Socket.Close();
-                GetTree().Quit(); 
+                GetTree().Quit();
             }
         }
 

@@ -5,6 +5,7 @@ using LiteNetLib.Utils;
 using LiteNetLib;
 using System.Net;
 using System;
+using System.Threading;
 using Godot;
 using Network.Packet;
 
@@ -114,6 +115,8 @@ namespace Network
         private void StartNetworkThread ()
         {
             _netThread = new Thread(NetworkThread);
+            _netThread.Priority = ThreadPriority.AboveNormal;
+            
             _netThread.Start();
         }
 
@@ -131,6 +134,7 @@ namespace Network
         #region Net Events
         public void OnPeerConnected (NetPeer peer)
         {
+            GD.Print("New peer : " + peer.EndPoint);
             PeerConnection?.Invoke(peer);
         }
 

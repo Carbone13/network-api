@@ -22,10 +22,22 @@ public class LobbyManager : Node
 
     public void Initialize (Lobby lobby, bool host)
     {
-        GD.Print("> Joined lobby");
-        
+        if (host)
+        {
+            GD.Print("> Created lobby");
+            GetTree().Root.GetNode("Menu").QueueFree();
+            //GetTree().Root.CallDeferred("remove_child", GetTree().Root.GetNode("Menu"));
+        }
+        else
+        {
+            GD.Print("> Joined lobby");
+            GetTree().Root.GetNode("Connecting").QueueFree();
+            //GetTree().Root.CallDeferred("remove_child", GetTree().Root.GetNode("Connecting"));
+        }
+            
+
         GatherNodeReferences();
-        GetTree().Root.CallDeferred("remove_child", GetTree().Root.GetNode("Menu"));
+        
 
         _isHost = host;
         _lobby = lobby;
@@ -38,7 +50,7 @@ public class LobbyManager : Node
 
         _connectedPlayersList.Clear();
         _connectedPlayersList.AddItem(NetworkManager.singleton.Us.Nickname + " (You)", null, false);
-         UpdatePlayerCount();
+        UpdatePlayerCount();
     }
     
 
@@ -59,8 +71,7 @@ public class LobbyManager : Node
 
     public void OnDisconnect (NetPeer peer, DisconnectInfo info)
     {
-        if(peer.EndPoint.ToString() == _lobby.Host.Endpoints.Public.ToString() ||
-                peer.EndPoint.ToString() == _lobby.Host.Endpoints.Private.ToString())
+        if(_lobby.Host.Endpoints.CorrespondTo(peer.EndPoint))
         {
             GD.Print("Refused from lobby/Kicked");
 
@@ -68,7 +79,9 @@ public class LobbyManager : Node
             GetTree().Root.CallDeferred("add_child", menuScene);
             MenuManager manager = menuScene as MenuManager;
 
-            GetTree().Root.RemoveChild(GetTree().Root.GetNode("Lobby"));
+            GetTree().Root.GetNode("Lobby").QueueFree();
+            //GetTree().Root.CallDeferred("remove_child", GetTree().Root.GetNode("Lobby"));
+
             manager.GatherReferences();
             manager.popup.DialogText = "Host refused/kicked us !";
             manager.popup.Show();
@@ -90,7 +103,6 @@ public class LobbyManager : Node
                     update.Send(_peer, DeliveryMethod.ReliableOrdered);
             }
         }
-
     }
 
     // Network/Lobby management
@@ -109,7 +121,6 @@ public class LobbyManager : Node
         GD.Print("> New peer joined the lobby");
         Color col = _chatBox.GetColor("font_color");
         
-        _chatBox.AddColorOverride("font_color", Colors.Aqua);
         _chatBox.Text += "New player joined: " + peerInfo.Nickname + "\n";
         _connectedPlayersList.AddItem(peerInfo.Nickname);
         
@@ -121,7 +132,8 @@ public class LobbyManager : Node
         }
         
         connectedClients.Add(peer, peerInfo);
-
+        
+        GD.Print("Updating lobby state, and informing Lobby-Er & Clients");
         // Update our lobby statut
         _lobby.ConnectedPeers.Add(connectedClients[peer]);
         

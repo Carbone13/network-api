@@ -1,6 +1,6 @@
 ﻿using LiteNetLib;
 
-namespace Network.Packet
+namespace Network
 {
     public interface IPacket
     {

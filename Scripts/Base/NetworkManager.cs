@@ -74,5 +74,14 @@ namespace Network
                 return endPoint.Address;
             }
         }
+
+        public void SendToAllPlayers (IPacket _packet)
+        {
+            foreach (NetPeer peer in Socket.net.ConnectedPeerList)
+            {
+                if(peer != LobbyEr)
+                    _packet.Send(peer, DeliveryMethod.ReliableOrdered);
+            }
+        }
     }
 }

@@ -9,11 +9,13 @@ namespace Network
         public string Nickname { get; set; }  // Nickname
         public EndpointCouple Endpoints { get; set; } // Addresses
         public bool HighAuthority { get; set; } // Does it has high authority ? (= is it an Host or the Lobby-Er) ?
+        public int ID { get; set; }
 
-        public NetworkPeer (string _name, EndpointCouple _addresses, bool _authority = false)
+        public NetworkPeer (string _name, EndpointCouple _addresses, int _id = 0, bool _authority = false)
         {
             Nickname = _name;
             Endpoints = _addresses;
+            ID = _id;
             HighAuthority = _authority;
         }
 
@@ -22,6 +24,7 @@ namespace Network
             writer.Put(Nickname);
             writer.Put(Endpoints);
             writer.Put(HighAuthority);
+            writer.Put(ID);
         }
 
         public void Deserialize (NetDataReader reader)
@@ -29,6 +32,7 @@ namespace Network
             Nickname = reader.GetString();
             Endpoints = reader.Get<EndpointCouple>();
             HighAuthority = reader.GetBool();
+            ID = reader.GetInt();
         }
     }
 

@@ -34,7 +34,8 @@ public class LobbyManager : Node
             GetTree().Root.GetNode("Connecting").QueueFree();
             //GetTree().Root.CallDeferred("remove_child", GetTree().Root.GetNode("Connecting"));
         }
-            
+
+        NetworkManager.singleton.Us.ID = lobby.ConnectedPeers.Count;
 
         GatherNodeReferences();
         
@@ -46,7 +47,7 @@ public class LobbyManager : Node
         NetworkManager.Processor.SubscribeReusable<RegisterAndUpdateLobbyState, NetPeer>(OnLobbyUpdate);
 
         NetworkManager.singleton.HolePuncher.OnConnectSuccessful += OnPeerJoin;
-        NetworkManager.singleton.Socket.PeerDisconnection += OnDisconnect;
+        NetworkManager.singleton.Socket.Events.PeerDisconnectedEvent += OnDisconnect;
 
         _connectedPlayersList.Clear();
         _connectedPlayersList.AddItem(NetworkManager.singleton.Us.Nickname + " (You)", null, false);
@@ -180,6 +181,8 @@ public class LobbyManager : Node
 
     public void OnKickPressed ()
     {
+        if (_selectedPlayer < 1) return;
+        
         GD.Print(_selectedPlayer);
         GD.Print(connectedClients.Keys.ToArray().Length);
         connectedClients.Keys.ToArray()[_selectedPlayer - 1].Disconnect();

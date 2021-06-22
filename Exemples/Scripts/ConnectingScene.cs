@@ -39,8 +39,8 @@ public class ConnectingScene : Node
         NetworkManager.singleton.HolePuncher.Connect(TargetLobby.Host);
 
         // Subscribe to "Connect" & "Disconnect" event
-        NetworkManager.singleton.Socket.PeerConnection += OnConnect;
-        NetworkManager.singleton.Socket.PeerDisconnection += OnDisconnect;
+        NetworkManager.singleton.Socket.Events.PeerConnectedEvent += OnConnect;
+        NetworkManager.singleton.Socket.Events.PeerDisconnectedEvent += OnDisconnect;
         
         NetworkManager.Processor.SubscribeReusable<RegisterAndUpdateLobbyState>(OnAdditionalInformationsReceived);
     }

@@ -1,6 +1,5 @@
 ﻿using System.Net;
 using LiteNetLib;
-using Network.Packet;
 
 namespace Network.HolePunching
 {

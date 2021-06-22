@@ -15,36 +15,29 @@ namespace Network
     /// A socket allow you the receive packets on a port (specified or not)
     /// You can connect to multiple other peers and send them data
     /// </summary>
-    public class Socket : INetEventListener
+    public class Socket
     {
-
         public NetPacketProcessor Processor;
         public NetManager net;
+        public EventBasedNetListener Events;
 
         public readonly List<NetworkPeer> peers = new List<NetworkPeer>();
 
         private bool _listening;
+        private bool _autoAccepting;
         private Thread _netThread;
         
-        // These are actions linking everything from INetEvenListener, you can connect external function to them.
-        public Action<NetPeer> PeerConnection;
-        public Action<NetPeer, DisconnectInfo> PeerDisconnection;
-        public Action<IPEndPoint, SocketError> NetworkError;
-        public Action<NetPeer, int> LatencyUpdate;
-        public Action<ConnectionRequest> ConnectionRequest;
-        public Action<NetPeer, NetPacketReader, DeliveryMethod> PacketReception;
-        public Action<IPEndPoint, NetPacketReader, UnconnectedMessageType> PacketReceptionUnconnected;
-
-
-        public Socket ()
+        public Socket (bool autoAccept = true)
         {
             Processor = new NetPacketProcessor();
-
+            Events = new EventBasedNetListener();
+            
             // Register nested types
-
             Processor.RegisterNestedType<NetworkPeer>();
             Processor.RegisterNestedType<EndpointCouple>();
             Processor.RegisterNestedType<Lobby>();
+
+            _autoAccepting = autoAccept;
         }
 
         public NetPeer GetPeer (NetworkPeer peer)
@@ -62,14 +55,21 @@ namespace Network
         {
             if (_listening) return;
             
-            net = new NetManager(this);
+            net = new NetManager(Events);
             
+            Events.NetworkReceiveEvent += (_peer, _reader, _method) =>
+            {
+                Processor.ReadAllPackets(_reader, _peer);
+            };
+            if (_autoAccepting)
+                Events.ConnectionRequestEvent += _request => _request.Accept();
+            
+
             if(port == -1)
                 net.Start();
             else
                 net.Start(port);
             
-
             _listening = true;
 
             StartNetworkThread();
@@ -127,51 +127,6 @@ namespace Network
                 net.PollEvents();
                 Thread.Sleep(10);
             }
-        }
-
-        #endregion
-
-        #region Net Events
-        public void OnPeerConnected (NetPeer peer)
-        {
-            GD.Print("New peer : " + peer.EndPoint);
-            PeerConnection?.Invoke(peer);
-        }
-
-        public void OnPeerDisconnected (NetPeer peer, DisconnectInfo disconnectInfo)
-        {
-            PeerDisconnection?.Invoke(peer, disconnectInfo);
-        }
-
-        public void OnNetworkError (IPEndPoint endPoint, SocketError socketError)
-        {
-            NetworkError?.Invoke(endPoint, socketError);
-        }
-
-        public void OnNetworkReceive (NetPeer peer, NetPacketReader reader, DeliveryMethod deliveryMethod)
-        {
-            PacketReception?.Invoke(peer, reader, deliveryMethod);
-            Processor.ReadAllPackets(reader, peer);
-        }
-
-        public void OnNetworkReceiveUnconnected (IPEndPoint remoteEndPoint, NetPacketReader reader,
-            UnconnectedMessageType messageType)
-        {
-            PacketReceptionUnconnected?.Invoke(remoteEndPoint, reader, messageType);
-        }
-
-        public void OnNetworkLatencyUpdate (NetPeer peer, int latency)
-        {
-            LatencyUpdate?.Invoke(peer, latency);
-        }
-
-        public List<IPEndPoint> awaiting = new List<IPEndPoint>();
-
-        public void OnConnectionRequest (ConnectionRequest request)
-        {
-            // TODO deactivate that
-            request.Accept();
-            ConnectionRequest?.Invoke(request);
         }
 
         #endregion

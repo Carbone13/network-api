@@ -44,6 +44,11 @@ public struct Inputs : INetSerializable
         AD = reader.GetInt();
         WS = reader.GetInt();
     }
+
+    public override string ToString ()
+    {
+        return "x: " + AD + " y: " + WS;
+    }
 }
 
 public class InputsPacket
@@ -58,8 +63,8 @@ public class Netcode : Node
 {
     public List<Player> Players = new List<Player>();
     
-    public const int MAX_ROLLBACK_FRAMES = 10;
-    public const int FRAME_ADVANTAGE_LIMIT = 3;                                                                           
+    public const int MAX_ROLLBACK_FRAMES = 20;
+    public const int FRAME_ADVANTAGE_LIMIT = 5;                                                                           
     public const int INITIAL_FRAME = 0;
 
     [Export]private int localFrame = INITIAL_FRAME;
@@ -103,18 +108,6 @@ public class Netcode : Node
         
         processor.RegisterNestedType<Inputs>();
         processor.SubscribeReusable<InputsPacket> (GetInput);
-
-        Thread netThread = new Thread(PollEvents);
-        netThread.Start();
-    }
-
-    public void PollEvents ()
-    {
-        while (true)
-        {
-            socket.PollEvents();
-            Thread.Sleep(15);
-        }
     }
 
     public void Join1 ()
@@ -142,11 +135,13 @@ public class Netcode : Node
         Players.Add(player as Player);
         Player p = player as Player;
         p.local = true;
+        p.id = 2;
     }
     #endregion
     
     public override void _PhysicsProcess (float delta)
     {
+        socket.PollEvents();
         if (!connected) return;
         
         remoteFrame = onlineFrame;
@@ -162,6 +157,7 @@ public class Netcode : Node
     private void UpdateSync ()
     {
         DetermineSyncFrame();
+
         if (RollbackCondition())
         {
             ExecuteRollbacks();
@@ -176,14 +172,35 @@ public class Netcode : Node
             finalFrame = localFrame;
         }
 
-        syncFrame = finalFrame;
-        for (int i = syncFrame + 1; i < finalFrame; i++)
+        InputFrame oic = null; // find the oldest incorrect input frame
+ 
+        foreach(InputFrame inp in RecordedInputs) 
         {
-            InputFrame inputs = GetInputFrame(i);
-            if (!inputs.PredictedInputs.Equals(inputs.LocalInputs))
+            if(inp.Frame >= syncFrame + 1 && inp.Frame <= finalFrame) 
             {
-                syncFrame = i - 1;
+                if(!inp.RemoteInputs.Equals(inp.PredictedInputs)) 
+                {
+                    if(oic == null) 
+                    {
+                        oic = inp;
+                    }
+                    else 
+                    {
+                        if(inp.Frame < oic.Frame) 
+                        {
+                            oic = inp;
+                        }
+                    }
+                }
             }
+        }
+ 
+        if(oic != null) 
+        {
+            syncFrame = oic.Frame - 1;
+        }
+        else {
+            syncFrame = finalFrame;
         }
     }
 
@@ -203,34 +220,38 @@ public class Netcode : Node
         return localFrame > syncFrame && remoteFrame > syncFrame;
     }
     
-    // Rollback toward syncFrame
     private void ExecuteRollbacks ()
     {
+        //GD.Print("Rolling back to sync time : " + syncFrame);
         LoadFrame(syncFrame);
 
-        for (int i = syncFrame + 1; i < localFrame; i++)
+        for (int i = syncFrame + 1; i <= localFrame; i++)
         {
-            RollbackUpdate(i);
+            foreach (InputFrame input in RecordedInputs)
+            {
+                if (input.Frame == i)
+                {
+                    input.PredictedInputs = input.RemoteInputs;
+                    
+                    //GD.Print("Fixed frame " + input.Frame + " new inputs : " + input.PredictedInputs.ToString());
+                    
+                    UpdateInput(input);
+                    UpdateGame(i);
+                    OverwriteSaveState(i);
+                }
+            }
         }
     }
 
-    private void RollbackUpdate (int f)
-    {
-        InputFrame frame = GetInputFrame(f);
-        frame.PredictedInputs = frame.RemoteInputs;
-        UpdateInput(frame);
-        UpdateGame(f);
-        OverwriteSaveState(f);
-        
-    }
-    
     private void NormalUpdate ()
     {
         localFrame++;
+
         localInputs = new Inputs();
         localInputs.AD = (int)Input.GetActionStrength("ui_right") - (int)Input.GetActionStrength("ui_left");
         localInputs.WS = (int)Input.GetActionStrength("ui_down") - (int)Input.GetActionStrength("ui_up");
         InputFrame lfi = GetLocalPlayerInput();
+
         SendInputToRemoteClients();
         
         UpdateInput(lfi);
@@ -245,11 +266,11 @@ public class Netcode : Node
         {
             if (p.local)
             {
-                p.SimulateOneFrame(i.LocalInputs);
+                p.SimulateOneFrame(i.LocalInputs, i.Frame);
             }
             else
             {
-                p.SimulateOneFrame(i.PredictedInputs);
+                p.SimulateOneFrame(i.PredictedInputs, i.Frame);
             }
         }
     }
@@ -273,7 +294,7 @@ public class Netcode : Node
     InputFrame GetLocalPlayerInput ()
     {
         InputFrame inp = null;
-
+        
         foreach (InputFrame i in RecordedInputs)
         {
             if (i.Frame == localFrame)
@@ -285,7 +306,7 @@ public class Netcode : Node
             inp = new InputFrame();
             inp.PredictedInputs = lastRemoteInput;
             inp.Frame = localFrame;
-            
+
             RecordedInputs.AddLast(inp);
             if (RecordedInputs.Count > MAX_ROLLBACK_FRAMES)
             {
@@ -302,8 +323,7 @@ public class Netcode : Node
         packet.Inputs = localInputs;
         packet.Frame = localFrame;
         packet.FrameAdvantage = localFrame - remoteFrame;
-        //GD.Print("Sending inputs for frame " + packet.Frame);
-
+        
         foreach (NetPeer peer in socket.ConnectedPeerList)
         {
             peer.Send(processor.Write(packet), DeliveryMethod.ReliableOrdered);
@@ -311,28 +331,41 @@ public class Netcode : Node
     }
     private void LoadFrame (int f)
     {
+        //GD.Print("Loading frame " + f + " ...");
+        GameFrame frame = null;
+        foreach (GameFrame storedFrame in RecordedGameFrames)
+        {
+            if (storedFrame.Frame == f)
+            {
+                frame = storedFrame;
+            }
+        }
+
+        if (frame == null)
+        {
+            GD.Print("could not find frame !");
+            return;
+        }
+        
         foreach (Player p in Players)
         {
             if (p.local)
             {
-                foreach (GameFrame frame in RecordedGameFrames.Where(frame => frame.Frame == f))
-                {
-                    p.GlobalPosition = frame.localPosition;
-                }
+                p.GlobalPosition = frame.localPosition;
             }
             else
             {
-                foreach (GameFrame frame in RecordedGameFrames.Where(frame => frame.Frame == f))
-                {
-                    p.GlobalPosition = frame.remotePosition;
-                }
+                p.GlobalPosition = frame.remotePosition;
             }
         }
     }
+
+    private bool debugSyncframe;
+    
     private void NewSaveState ()
     {
         GameFrame snapshot = new GameFrame();
-
+        snapshot.Frame = localFrame;
         foreach (Player p in Players)
         {
             if (p.local)
@@ -354,28 +387,35 @@ public class Netcode : Node
 
     private void OverwriteSaveState (int f)
     {
+        GameFrame frame = null;
+        foreach (GameFrame storedFrame in RecordedGameFrames)
+        {
+            if (storedFrame.Frame == f)
+            {
+                frame = storedFrame;
+            }
+        }
+
+        if (frame == null)
+        {
+            //GD.PrintErr("Could not find frame " + f);
+            return;
+        }
         foreach (Player p in Players)
         {
             if (p.local)
             {
-                foreach (GameFrame frame in RecordedGameFrames.Where(frame => frame.Frame == f))
-                {
-                    frame.localPosition = p.GlobalPosition;
-                }
+                frame.localPosition = p.GlobalPosition;
             }
             else
             {
-                foreach (GameFrame frame in RecordedGameFrames.Where(frame => frame.Frame == f))
-                {
-                    frame.remotePosition = p.GlobalPosition;
-                }
+                frame.remotePosition = p.GlobalPosition;
             }
         }
     }
     
     private void GetInput (InputsPacket inp)
     {
-        //GD.Print("Received inputs for frame " + inp.Frame);
         onlineFrame = inp.Frame;
         lastRemoteInput = inp.Inputs;
         remoteFrameAdvantage = inp.FrameAdvantage;
@@ -384,6 +424,12 @@ public class Netcode : Node
 
         if (frame != null)
         {
+            if (!frame.PredictedInputs.Equals(inp.Inputs))
+            {
+                //GD.PrintErr("Frame " + frame.Frame);
+                debugSyncframe = true;
+            }
+            
             frame.RemoteInputs = inp.Inputs;
         }
         else

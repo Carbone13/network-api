@@ -63,8 +63,8 @@ public class Netcode : Node
 {
     public List<Player> Players = new List<Player>();
     
-    public const int MAX_ROLLBACK_FRAMES = 20;
-    public const int FRAME_ADVANTAGE_LIMIT = 5;                                                                           
+    public const int MAX_ROLLBACK_FRAMES = 64;
+    public const int FRAME_ADVANTAGE_LIMIT = 64;                                                                           
     public const int INITIAL_FRAME = 0;
 
     [Export]private int localFrame = INITIAL_FRAME;
@@ -74,6 +74,7 @@ public class Netcode : Node
     [Export]private int onlineFrame = 0;
 
     private Inputs lastRemoteInput;
+    private Inputs lastSentInputs;
     private Inputs localInputs;
 
     private LinkedList<InputFrame> RecordedInputs = new LinkedList<InputFrame>();
@@ -85,7 +86,8 @@ public class Netcode : Node
 
     [Export] private PackedScene PlayerPrefab;
     private bool connected;
-    
+
+    private LineEdit Address, Port;
     #region Networking
     public override void _Ready ()
     {
@@ -93,49 +95,95 @@ public class Netcode : Node
         processor = new NetPacketProcessor();
         
         socket = new NetManager(listener);
+        socket.AutoRecycle = true;
+        socket.SimulateLatency = true;
+        socket.SimulationMinLatency = 500;
+        socket.SimulationMaxLatency = 800;
+        socket.SimulatePacketLoss = true;
 
         listener.ConnectionRequestEvent += _request => _request.Accept();
         listener.PeerConnectedEvent += _peer =>
         {
+            other = _peer;
             Node player = PlayerPrefab.Instance();
             GetTree().Root.AddChild(player);
 
             Players.Add(player as Player);
+            Player p = player as Player;
+
+            if (host)
+            {
+                p.Position = new Vector2(500, 0);
+            }
+            else
+            {
+                p.Position = new Vector2(300, 0);
+            }
             connected = true;
+            
+            p._Ready();
+            
+            NewSaveState();
         };
         
         listener.NetworkReceiveEvent += (_peer, _reader, _method) => processor.ReadAllPackets(_reader, _peer);
+        //listener.NetworkLatencyUpdateEvent += (_peer, _latency) => GD.Print("Latency: " + _latency + " ms");
         
         processor.RegisterNestedType<Inputs>();
         processor.SubscribeReusable<InputsPacket> (GetInput);
+
+        Address = GetNode<LineEdit>("Address");
+        Port = GetNode<LineEdit>("Port");
     }
 
-    public void Join1 ()
+    public bool host;
+    
+    public void Join ()
     {
-        GD.Print("1");
+        socket.Start();
+        other = socket.Connect(Address.Text, 3456, "");
+        
+        Node player = PlayerPrefab.Instance();
+        GetTree().Root.AddChild(player);
+        Players.Add(player as Player);
+        Player p = player as Player;
+        p.Position = new Vector2(500, 0);
+        p._Ready();
+        p.local = true;
+        
+        p._Ready();
+        
+        DeleteUI();
+    }
+
+    public void Host ()
+    {
+        //UPNP upnp = new UPNP();
+        //upnp.Discover();
+        //upnp.AddPortMapping(3456);
         socket.Start(3456);
-        other = socket.Connect("127.0.0.1", 3457, "");
-
+        
         Node player = PlayerPrefab.Instance();
         GetTree().Root.AddChild(player);
         
         Players.Add(player as Player);
         Player p = player as Player;
+        p.Position = new Vector2(300, 0);
+        p._Ready();
         p.local = true;
+        host = true;
+        
+        p._Ready();
+        
+        DeleteUI();
     }
 
-    public void Join2 ()
+    private void DeleteUI ()
     {
-        socket.Start(3457);
-        other = socket.Connect("127.0.0.1", 3456, "");
-        
-        Node player = PlayerPrefab.Instance();
-        GetTree().Root.AddChild(player);
-        
-        Players.Add(player as Player);
-        Player p = player as Player;
-        p.local = true;
-        p.id = 2;
+        GetNode("Address").QueueFree();
+        GetNode("Port").QueueFree();
+        GetNode("Button").QueueFree();
+        GetNode("Button2").QueueFree();
     }
     #endregion
     
@@ -317,17 +365,25 @@ public class Netcode : Node
         inp.LocalInputs = localInputs;
         return inp;
     }
+
+    private int sent;
+    // TODO only send input when they change, need to refacto other things tho
     private void SendInputToRemoteClients ()
     {
+        //GD.Print("Updating our inputs");
+        sent++;
+        //GD.Print("Sent " + sent + " packets");
         InputsPacket packet = new InputsPacket();
         packet.Inputs = localInputs;
         packet.Frame = localFrame;
         packet.FrameAdvantage = localFrame - remoteFrame;
-        
+        lastSentInputs = packet.Inputs;
+    
         foreach (NetPeer peer in socket.ConnectedPeerList)
         {
-            peer.Send(processor.Write(packet), DeliveryMethod.ReliableOrdered);
+            peer.Send(processor.Write(packet), DeliveryMethod.ReliableUnordered);
         }
+        
     }
     private void LoadFrame (int f)
     {
@@ -413,9 +469,12 @@ public class Netcode : Node
             }
         }
     }
-    
+
+    private int received;
     private void GetInput (InputsPacket inp)
     {
+        received++;
+        //GD.Print("Received " + received + " packets");
         onlineFrame = inp.Frame;
         lastRemoteInput = inp.Inputs;
         remoteFrameAdvantage = inp.FrameAdvantage;
